@@ -1,0 +1,289 @@
+
+
+groups {
+    re0 {
+        system {
+            host-name <%= config['hostname'] %>r0;
+        }
+        interfaces {
+            fxp0 {
+                description "FE      <%= config['hostname'] %> RE0 to OOB";
+                speed 10m;
+                link-mode full-duplex;
+                unit 0 {
+                    family inet {
+                        address <%= config['re0_mgmt_ip'] %>/<%= config['re_mgmt_prefix_length'] %>;
+                    }
+                }
+            }
+        }
+    }
+    re1 {
+        system {
+            host-name <%= config['hostname'] %>r1;
+        }
+        interfaces {
+            fxp0 {
+                description "FE      <%= config['hostname'] %> RE1 to OOB";
+                speed 10m;
+                link-mode full-duplex;
+                unit 0 {
+                    family inet {
+                        address <%= config['re1_mgmt_ip'] %>/<%= config['re_mgmt_prefix_length'] %>;
+                    }
+                }
+            }
+        }
+    }
+apply-groups [ re0 re1 ];
+system {
+    backup-router <%= config['oob_management_gw'] %> destination [ 172.27.80.0/25 172.27.96.0/25 ];
+    arp {
+        passive-learning;
+    }
+    location {
+        building "<%= config['system_location_building'] %>"; 
+    }        
+    services {
+        netconf {
+            ssh;
+        }
+    }
+    syslog {
+        file default-log-messages {
+            any any;
+            match "(requested 'commit' operation)|(copying configuration to juniper.save)|ifAdminStatus|(FRU power)|(FRU removal)|(FRU insertion)|(link UP)|(vc add)|(vc delete)|transitioned|Transferred|transfer-file";
+            structured-data;
+        }
+    }
+}
+chassis {
+    aggregated-devices {
+        ethernet {
+            device-count 31;
+        }
+    }
+}
+interfaces {
+
+    <% config['wan-phy-interfaces'].each do |key,value| -%>
+   <%= key['interface_name'] %> {
+        description "<%= key['interface_description'] %>";
+        gigether-options {
+            802.3ad <%= config['wan-ae-interface'] %>;                
+        }
+   }
+    <% end -%>
+    
+    <% config['edge-phy-interfaces'].each do |key,value| -%>
+   <%= key['interface_name'] %> {
+        description "<%= key['interface_description'] %>";
+        gigether-options {
+            802.3ad <%= config['edge-ae-interface'] %>;                
+        }
+   }
+    <% end -%>
+    
+    <% config['sister-phy-interfaces'].each do |key,value| -%>
+   <%= key['interface_name'] %> {
+        description "<%= key['interface_description'] %>";
+        gigether-options {
+            802.3ad <%= config['sister-ae-interface'] %>;                
+        }
+   }
+    <% end -%>
+        /* minimum-links value must be equal to physical links, should be increased when a new link is provisioned */
+    <%= config['edge-ae-interface'] %> {
+        description "<%= config['edge-ae-interface-description'] %>";
+        flexible-vlan-tagging;
+        mtu 4474;
+        encapsulation flexible-ethernet-services;
+        aggregated-ether-options {
+            minimum-links 1;
+            lacp {
+                active;
+            }
+        }
+    }
+    /* minimum-links value must be equal to physical links, should be increased when a new link is provisioned */
+    <%= config['wan-ae-interface'] %> {
+        description "<%= config['wan-ae-interface-description'] %>";
+        mtu 9046;
+        aggregated-ether-options {
+            minimum-links 1;
+            lacp {
+                active;
+            }
+        }
+        unit 0 {
+            family inet {
+                address <%= config['wan-interface-ip'] %>/<%= config['wan-interface-prefix-length'] %>;
+            }
+            family iso;
+            family mpls;
+        }
+    }
+    /* minimum-links value must be equal to physical links, should be increased when a new link is provisioned */
+    <%= config['sister-ae-interface'] %> {
+        description "<%= config['sister-ae-interface-description'] %>";
+        mtu 9046;
+        aggregated-ether-options {
+            minimum-links 1;
+            lacp {
+                active;
+            }
+        }
+        unit 0 {
+            family inet {
+                address <%= config['sister-interface-ip'] %>/<%= config['sister-interface-prefix-length'] %>;
+            }
+            family iso;
+            family mpls;
+        }
+    }
+    fxp0 {
+        unit 0 {
+            family inet {
+                address <%= config['re_mgmt_master_only_ip'] %>/<%= config['re_mgmt_prefix_length'] %> {
+                    master-only;
+                }
+            }
+        }
+    }
+    lo0 {
+        description "<%= config['hostname'] %> Loopback";
+        unit 0 {
+            family inet {
+                address <%= config['loopback-ip'] %>/32 {
+                    primary;
+                }
+                address 127.0.0.1/32;
+            }
+            family iso {
+                address <%= config['NET-address'] %>;
+            }
+        }
+    }
+}
+snmp {
+    name <%= config['hostname'] %>;
+    location "<%= config['snmp_location'] %>";
+    trap-group space {
+        targets {
+            172.26.16.42;
+            172.26.16.43;
+        }
+    }
+}
+routing-options {
+    static {
+        route 172.27.80.0/25 {
+            next-hop <%= config['oob_management_gw'] %>;
+            retain;
+            no-readvertise;
+        }
+        route 172.27.96.0/25 {
+            next-hop <%= config['oob_management_gw'] %>;
+            retain;
+            no-readvertise;
+        }
+    }
+    router-id <%= config['loopback-ip'] %>;
+    route-distinguisher-id <%= config['loopback-ip'] %>;
+}
+protocols {                             
+    rsvp {
+        traceoptions {
+            file rsvp_trace_file size 1m files 5;
+            flag state detail;
+        }
+        <% config['core-interfaces'].each do |key,value| -%>
+        interface <%= key['interface_name'] %> {
+            authentication-key "not_this_key"; ## SECRET-DATA
+            aggregate;
+            link-protection;
+        }
+        <% end -%>
+        interface fxp0.0 {
+            disable;
+        }
+    }
+    mpls {
+        statistics {
+            file mpls-statistics_file size 1m files 5;
+            interval 300;
+        }
+        traceoptions {
+            file mpls_trace_file size 1m files 5;
+            flag state;
+        }
+        admin-groups {
+            maintenance 10;
+        }
+        optimize-aggressive;
+        no-propagate-ttl;
+        optimize-timer 1200;        
+        <% config['core-interfaces'].each do |key,value| -%>
+        interface <%= key['interface_name'] %>;
+        <% end -%>
+        interface fxp0.0 {
+            disable;
+        }
+    }
+    bgp {
+        traceoptions {
+            file bgp_trace_file size 1m files 5;
+            flag state;
+            flag general;
+        }
+        log-updown;
+        family inet {
+            unicast;
+        }
+        family inet-vpn {
+            unicast;
+        }
+        family l2vpn {                  
+            signaling;
+        }
+        group <%= config['BGP_RR_group_name'] %> {
+            type internal;
+            description "iBGP peers";
+            local-address <%= config['loopback-ip'] %>;
+            authentication-key "not_this_key"; ## SECRET-DATA
+            tcp-mss 4096;
+            neighbor 172.26.0.222;
+            neighbor 172.26.0.223;
+            neighbor <%= config['sister-pe-loopback-ip'] %>;
+        }
+    }
+    isis {
+        traceoptions {
+            file isis_trace_file size 1m files 5;
+            flag state detail;
+            flag error detail;
+        }
+        level 1 disable;
+        level 2 {
+            authentication-key "not_this_key"; ## SECRET-DATA
+            authentication-type md5;
+            wide-metrics-only;
+        }
+        <% config['core-interfaces'].each do |key,value| -%>
+        interface <%= key['interface_name'] %> {
+            point-to-point;
+            level 2 metric <%= key['isis_metric'] %>;
+        }
+        <% end -%>
+        interface fxp0.0 {
+            disable;
+        }
+        interface lo0.0;
+    }                                   
+    vrrp {
+        traceoptions {
+            file vrrp-trace-file size 1m files 5;
+            flag state;
+        }
+    }
+}

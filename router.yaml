@@ -1,0 +1,72 @@
+hostname: r1
+
+snmp_location: in valhalla
+system_location_building: in valhalla
+
+
+re0_mgmt_ip: 10.244.10.100
+re1_mgmt_ip: 10.244.10.101
+re_mgmt_master_only_ip: 10.244.10.106
+re_mgmt_prefix_length: 28
+oob_management_gw: 10.244.10.97
+
+NET-address: 49.0001.1720.2600.0230.00
+
+core-interfaces:
+-
+    interface_name: ae11.0
+    isis_metric: 10000
+-
+    interface_name: ae12.0
+    isis_metric: 10001
+
+loopback-ip: 172.26.0.230
+sister-pe-loopback-ip: 172.26.0.231
+BGP_RR_group_name: blabla
+
+wan-ae-interface: ae11
+wan-ae-interface-description: ae11 _Circuit_ID_ to node ae11
+wan-interface-ip: 172.28.204.34
+wan-interface-prefix-length: 30
+
+wan-phy-interfaces:
+-
+    interface_name: xe-11/3/0
+    interface_description: 10GE _Circuit_ID_ to cloud xe-5/1/0
+-
+    interface_name: xe-11/3/1
+    interface_description: 10GE _Circuit_ID_ to hell xe-11/2/2
+    
+sister-ae-interface: ae12
+sister-ae-interface-description: ae12 _Circuit_ID_ to some other node  ae12
+sister-interface-ip: 10.247.131.101
+sister-interface-prefix-length: 30
+
+sister-phy-interfaces:
+-
+    interface_name: xe-5/0/0
+    interface_description: 10GE _Circuit_ID_ to some other node xe-5/0/0
+-
+    interface_name: xe-5/0/1
+    interface_description: 10GE _Circuit_ID_ to some other node xe-5/0/1
+-
+    interface_name: xe-5/0/2
+    interface_description: 10GE _Circuit_ID_ to some other node xe-5/0/2
+-
+    interface_name: xe-5/0/3
+    interface_description: 10GE _Circuit_ID_ to some other node xe-5/0/3
+ 
+
+edge-ae-interface: ae13
+edge-ae-interface-description: ae13 _Circuit_ID_ to some other node
+
+edge-phy-interfaces:
+-
+    interface_name: xe-11/3/2
+    interface_description: 10GE _Circuit_ID_ to some other node Te13/1
+-
+    interface_name: xe-11/3/3
+    interface_description: 10GE _Circuit_ID_ to some other node Te13/2
+-
+    interface_name: xe-11/1/0
+    interface_description: 10GE _Circuit_ID_ to some other node Te13/3
