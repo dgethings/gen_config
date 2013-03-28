@@ -2,6 +2,7 @@
 require 'erb'
 require 'yaml'
 
+
 unless ARGV[1]
   puts '', "Usage : ruby  #{$0}  <TEMPLATE_FILE> <YAML_FILE> [OUTPUT_FILENAME] [test]"
   puts '', "\t[OUTPUT_FILENAME] is optional, if not provided output will be to the screen"
