@@ -1,6 +1,0 @@
-- template: BT/GS/HSPE/10GE-core-interface.erb
-  OSPF_area: 
-  interface_identifier: 
-  red_ip_address: 
-  white_ip_address: 
-  blue_ip_address: 
