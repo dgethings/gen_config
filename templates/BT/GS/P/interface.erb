@@ -1,0 +1,27 @@
+interfaces {
+    <%= c.interface_specifier %> {
+       vlan-tagging;
+       shared-scheduler;
+   }
+}
+class-of-service {
+    traffic-control-profiles {
+        <%= c.traffic_control_profile_name %> {
+            scheduler-map <%= c.interface_scheduler_map_name %>;
+            shaping-rate <%= c.shaping_rate %>;
+        }
+    }
+    interfaces {
+         <%= c.interface_specifier %> {
+            unit <%= c.unit_id %> {
+                classifiers {
+                    exp BT_mpls_core_exp_ba_classifier;
+                    inet-precedence BT_mpls_core_prec_ba_classifier;
+                }
+                rewrite-rules {
+                    exp BT_mpls_core_exp_rewrite;
+                }
+            }
+        }
+    }
+}

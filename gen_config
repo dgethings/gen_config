@@ -18,6 +18,7 @@ end
 
 yaml.each do |config|
   @template = ERB.new( File.read( "templates/#{config['template']}" ) )
-
-  puts @template.result( OpenStruct.new( config ).send( :binding ) )
+  c= OpenStruct.new( config )
+  
+  puts @template.result( c.send( :binding ) )
 end

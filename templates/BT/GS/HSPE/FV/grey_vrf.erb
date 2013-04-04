@@ -1,0 +1,131 @@
+interfaces {
+  <%= c.ifd %> {
+    unit <%= c.ifl %> {
+      vlan-id <%= c.ifl %>;
+      family inet {
+        mtu 1500;
+        address 63.2.69.1/30;
+        filter {
+          input grey-IN-500k;
+          output grey-OUT;
+        }
+      }
+    }
+  }
+  lo0 {
+    unit <%= c.lo0_unit %> {
+      family inet {
+        filter {
+          input protect-RE-VRF;
+        }
+        address <%= c.lo0_ip_addr %>/32;
+      }
+    }
+  }
+}
+policy-options {
+  prefix-list ebgp-in-grey_<%= c.rt %> {
+    <%= c.lo0_ip_addr %>/32;
+    <%= c.other_ce_lo10 %>/32;
+    10.11.0.1/32;
+  }
+  policy-statement rm-ebgpin-grey_<%= c.rt %> {
+    term allow-ce-loops {
+      from {
+        protocol bgp;
+        community [ grey-own-loopback10 grey-other-loopback10 grey-loopback12 ];
+        prefix-list ebgp-in-grey_<%= c.rt %>;
+      }
+      then accept;
+    }
+    term explicit-deny {
+      then reject;
+    }
+  }
+}
+class-of-service {
+  interfaces {
+    <%= c.ifd %> {
+      scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+      unit <%= c.ifl %> {
+        output-traffic-control-profile grey-500k-POUT;
+      }
+    }
+  }
+}
+routing-instances {
+  grey_<%= c.rt %> {
+    instance-type vrf;
+    interface lo0.<%= c.lo0_unit %>;
+    interface <%= c.ifd %>$.<%= c.ifl %>;
+    route-distinguisher 12641:<%= c.rd %>;
+    vrf-import fce_only_grey_import_map;
+    vrf-export fce_only_grey_export_map;
+    vrf-table-label;
+    routing-options {
+      auto-export;
+      multipath;
+      static {
+        route <%= c.ce_lo10 %>/32 {
+          next-hop 63.2.69.2;
+          bfd-liveness-detection {
+            no-adaptation;
+            minimum-interval 999;
+            multiplier 3;
+          }
+          preference 171;
+          community 12641:65050;
+        }
+        route <%= c.other_ce_lo10 %>/32 {
+          next-hop 63.2.69.2;
+          tag 4000;
+          bfd-liveness-detection {
+            no-adaptation;
+            minimum-interval 999;
+            multiplier 3;
+          }
+          preference 171;
+          community 12641:65050;
+        }
+        route 63.2.69.2/32 {
+          next-hop 63.2.69.2;
+          no-readvertise;
+          bfd-liveness-detection {
+            no-adaptation;
+            minimum-interval 999;
+            multiplier 3;
+          }
+        }
+      }
+    }
+    protocols {
+      bgp {
+        damping;
+        group ebgp {
+          type external;
+          log-updown;    
+          neighbor 63.2.69.2 {
+            hold-time 180;
+            import [ CUSTOMER-BGP-DAMPING rm-ebgpin-grey_<%= c.rt %> ];
+            export CLEARINTERNALCOMM;
+            family inet {
+              any {
+                prefix-limit {
+                  maximum 500;
+                  teardown 10 idle-timeout forever;
+                }
+              }
+            }
+            peer-as 65656;
+            bfd-liveness-detection {
+              no-adaptation;
+              minimum-interval 999;
+              multiplier 3;
+            }
+            as-override;
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+- template: BT/GS/P/mx_base.erb
+  blue_instance_IP_address: 
+  lo0_0_ip_address:
+  location: 
+  red_instance_IP_address: 

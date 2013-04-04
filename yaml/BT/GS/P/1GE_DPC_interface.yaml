@@ -1,0 +1,5 @@
+- template: BT/GS/P/1GE_DPC_interface.erb
+  blue_ip_address: 
+  interface_identifier: 
+  red_ip_address: 
+  white_ip_address: 

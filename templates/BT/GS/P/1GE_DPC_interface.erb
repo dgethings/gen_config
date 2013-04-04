@@ -1,0 +1,183 @@
+interfaces {
+	interface-set int_set_<%= c.interface_identifier %> { 
+		interface <%= c.interface_identifier %> { 
+			unit 15;
+			unit 65;
+			unit 75;
+		} 
+	}
+	<%= c.interface_identifier %> {
+		traps;
+		vlan-tagging;
+		mtu 1718;
+		hold-time up 2000 down 0;
+		hierarchical-scheduler;
+		unit 15 {
+			description "white vlan";
+			vlan-id 15;
+			family inet {
+				mtu 1688;
+				address <%= c.white_ip_address %>/30;
+			}
+			family mpls {
+				mtu 1700;
+			}
+		}
+		unit 65 {
+			description "red vlan";
+			vlan-id 65;
+			family inet {
+				mtu 1500;
+				address <%= c.red_ip_address %>/30;
+			}
+			family mpls {
+				mtu 1552;
+			}
+		}
+		unit 75 {
+			description "blue vlan";
+			vlan-id 75;
+			family inet {
+				mtu 1500;
+				address <%= c.blue_ip_address %>/30;
+			}
+			family mpls {
+				mtu 1552;
+			}
+		}
+	}
+}
+protocols {
+	ospf {
+		area $OSPF_area$ {
+			interface <%= c.interface_identifier %>.15 {
+				metric 10;
+				interface-type p2p;
+				hello-interval 10;
+				dead-interval 40;
+				priority $OSPF_priority$;
+				ldp-synchronization;
+				authentication {
+					md5 1 key "$9$chCrK8-VYZUHX7UHqmF3SrevX7dbs4JG" start-time "2010-01-01.00:00";
+				}
+				bfd-liveness-detection {
+					minimum-interval 300;
+					multiplier 3;
+					no-adaptation;
+				}
+			}
+		}
+	}
+	ldp {
+		interface <%= c.interface_identifier %>.15;
+		interface <%= c.interface_identifier %>.65;
+		interface <%= c.interface_identifier %>.75;
+	}
+	mpls {
+		interface <%= c.interface_identifier %>.15;
+	}
+	rsvp {
+		interface <%= c.interface_identifier %>.15 {
+			bandwidth 12m;
+		}
+	}
+	pim {
+		interface <%= c.interface_identifier %>.15 {
+			mode sparse;
+			version 2;			
+		}
+		interface <%= c.interface_identifier %>.65 {
+			mode sparse;
+			version 2;
+		}
+		interface <%= c.interface_identifier %>.75 {
+			mode sparse;
+			version 2;
+		}
+	}
+}
+class-of-service {
+	traffic-control-profiles {
+		tcp_<%= c.interface_identifier %> {
+			scheduler-map scheduler_map_chassis_1Gbps_cpa_cppc;
+			shaping-rate 1g;
+		}
+	}
+	interfaces {
+		interface-set int_set_<%= c.interface_identifier %> {
+			output-traffic-control-profile tcp_<%= c.interface_identifier %>;
+		}
+		<%= c.interface_identifier %> {
+			scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+			unit 15 {
+				classifiers {
+					exp BT_mpls_core_exp_ba_classifier;
+					inet-precedence BT_mpls_core_prec_ba_classifier;
+				}
+				rewrite-rules {
+					exp BT_mpls_core_exp_rewrite;
+				}
+			}
+			unit 65 {
+				classifiers {
+					exp BT_mpls_core_exp_ba_classifier;
+					inet-precedence BT_mpls_core_prec_ba_classifier;
+				}
+				rewrite-rules {
+					exp BT_mpls_core_exp_rewrite;
+				}
+			}
+			unit 75 {
+				classifiers {
+					exp BT_mpls_core_exp_ba_classifier;
+					inet-precedence BT_mpls_core_prec_ba_classifier;
+				}
+				rewrite-rules {
+					exp BT_mpls_core_exp_rewrite;
+				}
+			}
+		}
+	}	
+}
+routing-instances {
+	red {
+		interface <%= c.interface_identifier %>.65;
+		protocols {
+			ospf {
+				area $OSPF_area$ {
+					interface <%= c.interface_identifier %>.65 {
+						metric 10;
+						interface-type p2p;
+						hello-interval 10;
+						dead-interval 40;
+						priority $OSPF_priority$;
+						ldp-synchronization;
+						authentication {
+							md5 1 key "$9$chCrK8-VYZUHX7UHqmF3SrevX7dbs4JG" start-time "2010-01-01.00:00";
+						}
+					}
+				}
+			}
+		}
+	}
+	blue {
+		interface <%= c.interface_identifier %>.75;
+		protocols {
+			ospf {
+				area $OSPF_area$ {
+					interface <%= c.interface_identifier %>.75 {
+						metric 10;
+						interface-type p2p;
+						hello-interval 10;
+						dead-interval 40;
+						priority $OSPF_priority$;
+						ldp-synchronization;
+						authentication {
+							md5 1 key "$9$chCrK8-VYZUHX7UHqmF3SrevX7dbs4JG" start-time "2010-01-01.00:00";
+						}
+					}
+				}
+			}
+		}
+	}
+}

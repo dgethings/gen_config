@@ -1,0 +1,179 @@
+interfaces {
+  <%= c.ifd %>  {
+    traps;
+    vlan-tagging;
+    hierarchical-scheduler;
+    mtu 1518;
+    hold-time up 0 down 2000;
+    unit <% = c.ifl %> {
+      description "<%= c.subinterface_description %>";
+      vlan-id <%= c.ifl %>;
+      family inet {
+        mtu 1500;
+        address <%= c.ip_address %>/30; 
+        filter {
+          input <%= vrf_name %>-IN-<%= c.ifd %>;                     
+          output <%= vrf_name %>-OUT-<%= c.ifd %>;
+        }
+      }
+    }
+  }
+  lo0 {
+    unit <%= c.vrf_lo0_logical_int %> { 
+      description "<%= c.vrf_lo0_int_description %>"
+      family inet {
+        filter {
+          input protect-RE-VRF;
+        }
+        address <%= c.vrf_lo0_ip_addr %>/32;            }
+      }
+    }
+  }
+  interface-set interface_set_<%= vrf_name %>_<%= c.ifd %> {
+    interface <%= c.ifd %> {
+      unit <%= c.ifl %>;
+    }
+  }
+}
+policy-options {
+  policy-statement <%= c.vrf_name %>_import_map {
+    term NMC-routes {
+      from {
+        protocol bgp;
+        community <%= c.greynet_hub_rt %>;
+      }
+      then accept;
+    }
+    term VPN-routes  {
+      from {
+        protocol bgp;
+        community <%= vrf_name %>_import_rt_set;
+      }
+      then accept;
+    }
+    term explicit-deny {
+      then reject;
+    }
+  }
+  policy-statement <%= c.vrf_name %>_export_map {
+    term VRF-loopback {
+      from {
+        protocol direct;
+        prefix-list-filter ACL-8-loopback200 orlonger;
+      }
+      then {
+        community add BT-MPLS-PE-VRF-loopback-SET;
+        community add <%= c.vrf_export_rt_set %>;
+        accept;
+      }
+    }
+    term tag-101 {
+      from {
+        protocol static;
+        tag 101;
+      }
+      then {
+        local-preference 50;
+        next term;
+      }
+    }
+    term 11-CE-mgmt-loopbacks {
+      from {
+        prefix-list-filter ACL-11-CE-mgmt-loopbacks orlonger;
+      }
+      then {
+        community add BT-MPLS-CE-loopback-SET;
+        community add <%= c.vrf_export_rt_set %>;
+        community add <%= c.greynet_spoke_rt_set %>;
+        accept;
+      }
+    }
+    term 13-cascaded-mgmt {
+      from {
+        prefix-list-filter ACL-13-cascaded-mgmt orlonger;
+      }
+      then {
+        community add BT-MPLS-cascaded-mgmt-SET;
+        community add <%= c.vrf_export_rt_set %>;
+        community add <%= c.greynet_spoke_rt_set %>;
+        accept;
+      }
+    }
+    term bgp {
+      from  {
+        protocol bgp;
+      }
+      then {
+        community add <%= c.vrf_export_rt_set %>;
+        accept;
+      }
+    }
+    term static {
+      from {
+        protocol static;
+      }
+      then {
+        community add <%= c.vrf_export_rt_set %>;
+        accept;
+      }
+    }
+    term explicit-deny {
+      then reject;
+    }
+  }
+  community <%= vrf_name %>_import_rt_set members target:12641:<%= c.import_RT %>;
+  community <%= c.vrf_export_rt_set %> members target:12641:<%= c.export_RT %>;
+}
+routing-instances {
+  <%= vrf_name %> {
+    instance-type vrf;
+    route-distinguisher 12641:<%= c.rd %>;        
+    vrf-table-label;
+    vrf-export <%= c.vrf_name %>_export_map;
+    vrf-import <%= c.vrf_name %>_import_map;
+    interface lo0.<%= c.vrf_lo0_logical_int %>;
+    interface <%= c.ifd %>.<% = c.ifl %>;
+    routing-options {
+      static {
+        route <%= c.ce_int_IP_address %>/32 {
+          next-hop <%= c.ce_int_IP_address %>;
+          community 12641:6100;
+        }
+        route <%= c.ce_mgmt_IP_address %>/32 {
+          next-hop <%= c.ce_int_IP_address %>;
+        }
+        route <%= c.cpe_lan_ip_addr %>/32 {
+          next-hop <%= c.ce_IP_address %>;
+        }
+      }
+      multipath {
+        vpn-unequal-cost;
+      }
+    }
+    protocols {
+      bgp {
+        damping;
+        group <%= c.bgp_group %> {
+          type external;
+          log-updown;
+          neighbor <%= c.ce_int_IP_address %> {
+            as-override;
+            import [ CUSTOMER-BGP-DAMPING <%= c.ce_import_policy %> ];
+            export <%= c.ce_export_policy %>;
+            peer-as <%= c.ce_AS_Number %>;
+            hold-time 30;            
+            out-delay 0; 
+            family inet {
+              any {
+                prefix-limit {
+                  maximum <%= c.prefix_limit %>;
+                  teardown <%= c.threshold %> idle-timeout forever;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

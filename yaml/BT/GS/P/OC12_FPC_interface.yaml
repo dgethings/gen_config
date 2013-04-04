@@ -1,0 +1,12 @@
+- template: BT/GS/P/OC12_FPC_interface.erb
+  OSPF_area: 
+  OSPF_dead_timer: 
+  OSPF_hello_timer: 
+  coloured_sub_interface_id: 
+  interface_description: 
+  interface_identifier: 
+  ip_address: 
+  key_id: 
+  ospf_metric: 
+  white_sub_interface_description: 
+  white_sub_interface_id: 

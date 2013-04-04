@@ -1,0 +1,9 @@
+- template: BT/GS/HSPE/FV/grey_vrf.erb
+  ce_lo10: 
+  ifd: 
+  ifl: 
+  lo0_ip_addr: 
+  lo0_unit: 
+  other_ce_lo10: 
+  rd: 
+  rt: 
