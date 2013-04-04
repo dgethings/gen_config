@@ -2,11 +2,45 @@
 
 ## Usage
 
-gen_config <TEMPLATE_FILE> <YAML_FILE> [OUTPUT_FILENAME] [test]
-
-  [OUTPUT_FILENAME] is optional, if not provided output will be to the screen
+gen_config <YAML_FILE> [test]
  
   [test] is optional, if set output will be the YAML configuration
+
+For example:
+
+  gen_config interface.yaml > interface.conf
+
+Will produce a file called "interface.conf" with the values from the YAML config file in it. This can then be applied to any device that supports "interface.conf" format.
+
+## YAML format
+
+The YAML config file can be written in an valid YAML format. The only requirement is that the YAML file contains 'template' key with a value that points to a template file. The only supported template format is ERB, but others could be included.
+
+For example here is a YAML config file that assigns an IP address to an interface using template file 'interface.erb' to add the additional syntax:
+
+  - template: interface.erb
+    interface: xe-0/0/0
+    ip_address: 10.0.0.1/24
+
+  - template: interface.erb
+    interface: xe-1/0/0
+    ip_address: 11.0.0.1/24
+
+This will produce config for both xe-0/0/0 and xe-1/0/0. gen_config will iterate over each "- template" line. All key/value pairs after this line populate the ERB template file.
+
+## Adding New Templates
+
+The current format supported for templates is ERB. This section provides information on the syntax and how to easily create a YAML for that template.
+
+The gen_config takes the values from the YAML file and substitutes the variables in the ERB with the values. Provided the ERB variables syntax is correct the substitution will work.
+
+The correct format for an ERB variable is "<%= c.variable %>" without the surrounding quotes (that is the quotes are no necessary). "variable" is the name of the variable that needed to be substituted. For example, if the template initially has all variables marked as $variable$ this would need to be changed to <%= c.variable %>.
+
+Once the template is complete you can extract a list of variables using the following UNIX command:
+
+  perl -ne '(@a) = /<%= (c\.\w+) %>/g; foreach (@a) { $h{$_} = 1; } END { print map { s/c\.//; "$_\n"} sort keys %h }' <filename>.erb
+
+From this list you can build the YAML file. You must preface the list of variables with "- template: path/to/file.erb". See YAML format for an example.
 
 ## SUPPORT
 

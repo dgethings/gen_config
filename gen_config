@@ -2,33 +2,22 @@
 require 'erb'
 require 'yaml'
 require 'ostruct'
-require 'ruby-debug'
 
 unless ARGV[0]
-  puts "Usage : #{$0} <YAML_FILE> [OUTPUT_FILENAME|test]"
-  puts "\t[OUTPUT_FILENAME] is optional, if not provided output will be to the screen"
+  puts "Usage : #{$0} <YAML_FILE> [test]"
   puts "\t[test] is optional, if set output will be the YAML configuration"
   exit
 end
 
-output = ARGV[1]
 yaml = YAML.load( File.read( ARGV[0] ) )
 
-if output == "test"
+if ARGV[1] == "test"
   puts YAML::dump( yaml )
   exit
 end
 
 yaml.each do |config|
-  # debugger
   @template = ERB.new( File.read( "templates/#{config['template']}" ) )
-  c = OpenStruct.new( config )
 
-  if output.class == String
-    File.open( output, 'w+' ) { |f| 
-      f.write( @template.result( c.send( :binding ) ) ) 
-    }
-  else
-    puts @template.result( c.send( :binding ) )
-  end
+  puts @template.result( OpenStruct.new( config ).send( :binding ) )
 end
