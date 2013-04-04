@@ -1,0 +1,71 @@
+interfaces {
+    lo0 {
+        unit 0 {
+            family inet {
+                address $ip_address$/32 {
+                	primary;
+				}
+             }
+         }
+    }
+}
+routing-options {
+    router-id $ip_address$;
+}
+snmp {
+    trap-options {
+        source-address $fxp0_address$;
+    }
+}
+system{
+	syslog {
+		source-address $primary_loopback_address$;
+    }
+}
+chassis {
+    fpc $slot_number$ {
+           pic $pic_number$ {
+                max-queues-per-interface 8;
+           }
+    }
+}
+chassis {
+	fpc $slot-number$ {
+		pic $pic-number$ {
+			traffic-manager {
+				mode {
+					egress-only;
+				}
+			}
+		}
+	}
+}
+class-of-service {
+      traffic-control-profiles {
+           $traffic_control_profile_name$ {
+                 scheduler-map $interface_scheduler_map_name$;
+                 shaping-rate $shaping_rate$;
+            }
+      }
+}
+class-of-service {
+	interfaces {
+		$interface_specifier$ {
+			unit $unit_id$ {
+				classifiers {
+					exp BT_mpls_core_exp_ba_classifier;
+					inet-precedence BT_mpls_core_prec_ba_classifier;
+				}
+				rewrite-rules {
+					exp BT_mpls_core_exp_rewrite;
+				}
+			}
+		}
+	}
+}
+interfaces {
+    $interface_specifier$ {
+           vlan-tagging;
+           shared-scheduler;
+       }
+}               

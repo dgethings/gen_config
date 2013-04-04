@@ -1,0 +1,767 @@
+interfaces {
+    [%- FOREACH vrf = vrfs %]
+    [% vrf.ifd %] {
+        traps;
+        vlan-tagging;
+        hierarchical-scheduler;
+        mtu 1518;
+        hold-time up 2000 down 2000;
+        unit [% vrf.ifl %] {
+            vlan-id [% vrf.ifl %];
+            family inet {
+                mtu 1500;
+                address 62.6.28.1/30;
+                filter {
+                    input-list [ finex-control agg_vrf_[% vrf.rt %]_[% vrf.ifd %].[% vrf.ifl %] finex-cos-[% vrf.ifd %].[% vrf.ifl %] ];
+                    output-list [ acl-out-fce-connection finex-BFD-BGP-PIM-out AF2_SAN_vrf_[% vrf.rt %] AF2-rtq-out-default AF1_SAN_vrf_[% vrf.rt %] AF1-out-default ];
+                }
+            }
+        }
+    }
+    lt-[% vrf.fpc %]/[% vrf.pic %]/10 {
+        unit [% vrf.lt_ifl_1 %] {
+            encapsulation vlan;
+            vlan-id 100;
+            peer-unit [% vrf.lt_ifl_2 %];
+            family inet {
+                address [% vrf.lt_ifl_1_addr %];
+            }
+        }
+        unit [% vrf.lt_ifl_2 %]  {
+            encapsulation vlan;
+            vlan-id 100;
+            peer-unit [% vrf.lt_ifl_1 %];
+            family inet {
+                address [% vrf.lt_ifl_2_addr %];
+            }
+        }
+    }
+    lo0 {
+        unit [% vrf.lo0_unit %] {
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address [% vrf.lo0_ip_addr %]/32 {
+                    primary;
+                    preferred;
+                }
+                address [% vrf.dummy_lo0_address %]/32;
+            }
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = greys %]
+    [% vrf.ifd %] {
+        unit [% vrf.ifl %] {
+            vlan-id [% vrf.ifl %];
+            family inet {
+                mtu 1500;
+                address 63.2.69.1/30;
+                filter {
+                    input grey-IN-500k;
+                    output grey-OUT;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit [% vrf.lo0_unit %] {
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address [% vrf.lo0_ip_addr %]/32;
+            }
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = pinks %]
+    [% vrf.ifd %] {
+        unit [% vrf.ifl %] {
+            vlan-id [% vrf.ifl %];
+            family inet {
+                mtu 1500;
+                address 64.2.69.1/30;
+                filter {
+                    input pink-IN-500k;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit [% vrf.lo0_unit %] {
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address [% vrf.lo0_ip_addr %]/32;
+            }
+        }
+    }
+    [%- END %]
+}
+policy-options {
+    [%- FOREACH vrf = vrfs %]
+    prefix-list acl-ebgpin-vrf_[% vrf.rt %]-[% vrf.rt %] {
+        [% vrf.customer_prefix %];
+    }
+    prefix-list allowed-srcs-[% vrf.ifd %].[% vrf.ifl %] {
+        [% vrf.src_nat_prefix %];
+    }
+    prefix-list sp-ping-[% vrf.ifd %].[% vrf.ifl %] {
+        1.0.0.0/24;
+    }
+    policy-statement fv-import-vrf_[% vrf.rt %] {
+        term deny-TR-spoke-community {
+            from {
+                protocol bgp;
+                community FE-TR-CLIENT-COM;
+            }
+            then reject;
+        }
+        term import-TR-provider-agg-RT {
+            from {
+                protocol bgp;
+                community TR-provider-agg-RT;
+            }
+            then accept;
+        }
+        term import-FCE-member-hub-RTs {
+            from {
+                protocol bgp;
+                community RT-community-12641:900649;
+                community Generic_Provider_Cos-FCE_rt;
+                community Fix_SAN_rt;
+                community AF1_SAN_rt;
+                community AF2_SAN_rt;
+            }
+            then accept;
+        }           
+        term import-FCE-provider-spoke-RTs {
+            from {
+                protocol bgp;
+                community RT-community-12641:900649;
+            }
+            then accept;
+        }
+    }
+    policy-statement fv-export-vrf_[% vrf.rt %] {
+        term PE-Lo99xx {
+            from {
+                protocol direct;
+                prefix-list-filter temp-PE-loops orlonger;
+            }
+            then {
+                community add FV-COMMUNITY-SET;
+                community add BT-MPLS-PE-VRF-loopback-SET;
+                community add vrf_[% vrf.rt %]-FCE-member-spoke-RTs;
+                community add vrf_[% vrf.rt %]-FCE-provider-hub-RTs;
+                accept;
+            }
+        }
+        term permit-static-fv-loop10s {
+            from {
+                protocol static;
+                prefix-list-filter fv-loop10s orlonger;
+            }
+            then {
+                community add vrf_[% vrf.rt %]-FCE-member-spoke-RTs;
+                community add vrf_[% vrf.rt %]-FCE-provider-hub-RTs;
+                accept;
+            }
+        }
+        term export-FCE-hub-and-spoke-RTs {
+            from {
+                protocol bgp;
+                community FE-FCE-CLIENT-AND-PROVIDER-COM;
+            }
+            then {
+                community add vrf_[% vrf.rt %]-FCE-member-spoke-RTs;
+                community add vrf_[% vrf.rt %]-FCE-provider-hub-RTs;
+                accept;
+            }
+        }
+       term export-FCE-spoke-RTs {
+            from {
+                protocol bgp;
+                community FE-FCE-CLIENT-COM;
+            }
+            then {
+                community add vrf_[% vrf.rt %]-FCE-member-spoke-RTs;
+                accept;
+            }
+        }
+        term export-FCE-hub-RTs {
+            from {
+                protocol bgp;
+                community FE-FCE-PROVIDER-COM;
+            }
+            then {
+                community add vrf_[% vrf.rt %]-FCE-provider-hub-RTs;
+                accept;
+            }
+        }
+    }
+    policy-statement rm-ebgpin-vrf_[% vrf.rt %]-[% vrf.rt %] {
+        term deny-dummy-subnet {
+            from {
+                protocol bgp;
+                prefix-list finex-wan-primary;
+            }
+            then {
+                reject;
+            }
+        }
+        term permit-vrf-prefixes {
+            from {
+                protocol bgp;
+                prefix-list acl-ebgpin-vrf_[% vrf.rt %]-[% vrf.rt %];
+            }
+            then {
+                community delete BT-MPLS-internal-wildcard;
+                community delete UK-MPLS-internal-wildcard;
+                community delete all-Origins;
+                community delete BT-MPLS-all-RTs;
+                community add FE-TOPOLOGY-SEC-PLUS;
+                community add FE-PRIMARY;
+                accept;
+            }
+        }
+    }
+    policy-statement soo-import-vrf_[% vrf.rt %]-[% vrf.rt %] {
+        term set-soo {
+            then {
+                community add SOO-COMMUNITY_vrf_[% vrf.rt %]-[% vrf.rt %];
+            }
+        }
+        term evaluate-next {
+            then next policy;
+        }
+    }
+    policy-statement soo-export-vrf_[% vrf.rt %]-[% vrf.rt %] {
+        term reject-soo {
+            from community SOO-COMMUNITY_vrf_[% vrf.rt %]-[% vrf.rt %];
+            then reject;
+        }
+        term evaluate-next {
+            then next policy;
+        }
+    }
+    community vrf_[% vrf.rt %]-FCE-member-spoke-RTs members target:12641:900650;
+    community vrf_[% vrf.rt %]-FCE-provider-hub-RTs members target:12641:900650;
+    community SOO-COMMUNITY_vrf_[% vrf.rt %]-[% vrf.rt %] members origin:12641:[% vrf.rt %];
+    [%- END %]
+    [%- FOREACH vrf = greys %]
+    prefix-list ebgp-in-grey_[% vrf.rt %] {
+        [% vrf.lo0_ip_addr %]/32;
+        [% vrf.other_ce_lo10 %]/32;
+        10.11.0.1/32;
+    }
+    policy-statement rm-ebgpin-grey_[% vrf.rt %] {
+        term allow-ce-loops {
+            from {
+                protocol bgp;
+                community [ grey-own-loopback10 grey-other-loopback10 grey-loopback12 ];
+                prefix-list ebgp-in-grey_[% vrf.rt %];
+            }
+            then accept;
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+    [%- END %]
+}
+class-of-service {
+    [%- FOREACH vrf = vrfs %]
+    traffic-control-profiles {
+        tc_vrf_[% vrf.rt %] {
+            scheduler-map sched_map_vrf_[% vrf.rt %];
+            shaping-rate 10m;
+        }
+    }
+    interfaces {
+        [% vrf.ifd %] {
+            unit [% vrf.ifl %] {
+                output-traffic-control-profile tc_vrf_[% vrf.rt %];
+            }
+        }
+    }
+    scheduler-maps {
+            sched_map_vrf_[% vrf.rt %] {
+                forwarding-class FC-Q1 scheduler af1_vrf_[% vrf.rt %];
+                forwarding-class FC-Q2 scheduler af2_vrf_[% vrf.rt %];
+                forwarding-class FC-Q7 scheduler af3_vrf_[% vrf.rt %];
+                forwarding-class FC-Q4 scheduler dflt_vrf_[% vrf.rt %];
+                forwarding-class FC-Q3 scheduler ctrl_vrf_[% vrf.rt %];
+            }
+    }
+    schedulers {
+        af1_vrf_[% vrf.rt %] {
+            transmit-rate percent 49;
+            buffer-size percent 49;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+        }
+        af2_vrf_[% vrf.rt %] {
+            transmit-rate percent 25;
+            buffer-size percent 25;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+        }
+        af3_vrf_[% vrf.rt %] {
+            transmit-rate percent 25;
+            buffer-size percent 25;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+        }
+        dflt_vrf_[% vrf.rt %] {
+            transmit-rate remainder;
+            buffer-size remainder;
+            priority low;
+        }
+        ctrl_vrf_[% vrf.rt %] {
+            transmit-rate percent 1;
+            buffer-size percent 1;
+            priority high;
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = greys %]
+    interfaces {
+        [% vrf.ifd %] {
+            scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+            unit [% vrf.ifl %] {
+                output-traffic-control-profile grey-500k-POUT;
+            }
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = pinks %]
+    interfaces {
+        [% vrf.ifd %] {
+            unit [% vrf.ifl %] {
+                output-traffic-control-profile pink-POUT-500k;
+            }
+        }
+    }
+    [%- END %]
+}
+firewall {
+    [%- FOREACH vrf = vrfs %]
+    policer agg_vrf_[% vrf.rt %]_[% vrf.ifd %].[% vrf.ifl %]_policer {
+        if-exceeding {
+            bandwidth-limit 10m;
+            burst-size-limit 15k;
+        }
+        then {
+            discard;
+        }
+    }
+    policer AF1_[% vrf.ifd %].[% vrf.ifl %] {
+        if-exceeding {
+            bandwidth-limit 5m;
+            burst-size-limit 15k;
+        }
+        then {
+            loss-priority low;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer AF1_SAN_[% vrf.ifd %].[% vrf.ifl %] {
+        if-exceeding {
+            bandwidth-limit 3m;
+            burst-size-limit 15k;
+        }
+        then {
+            discard;
+        }
+    }
+    policer AF2_SAN_[% vrf.ifd %].[% vrf.ifl %] {
+        if-exceeding {
+            bandwidth-limit 1m;
+            burst-size-limit 15k;
+        }
+        then {
+            discard;
+        }
+    }
+    policer Generic_Provider_Cos-FCE_vrf_[% vrf.rt %]_policer {
+        if-exceeding {
+            bandwidth-limit 1m;
+            burst-size-limit 15k;
+        }
+        then {
+            discard;
+        }
+    }
+    family inet {
+        filter agg_vrf_[% vrf.rt %]_[% vrf.ifd %].[% vrf.ifl %] {
+            interface-specific;
+            term sp-ping {                   
+                from {
+                    source-prefix-list {
+                        sp-ping-[% vrf.ifd %].[% vrf.ifl %];
+                    }
+                    protocol icmp;
+                    icmp-type-except echo-reply;
+                }                                   
+                then {
+                    count sp-ping-discard;
+                    discard;
+                }
+            }
+            term allowed-srcs-except {
+                from {
+                    source-prefix-list {
+                        allowed-srcs-[% vrf.ifd %].[% vrf.ifl %] except;
+                    }
+                }
+                then {
+                    count discard-traffic;
+                    discard;
+                }
+            }
+            term Agg-policer {
+                then {
+                    policer agg_vrf_[% vrf.rt %]_[% vrf.ifd %].[% vrf.ifl %]_policer;
+                    count all-permitted;
+                    next term;
+                }
+            }
+        }
+        filter finex-cos-[% vrf.ifd %].[% vrf.ifl %] {
+            term AF1_in {
+                from {
+                    dscp af11;
+                }
+                then {
+                    policer AF1_[% vrf.ifd %].[% vrf.ifl %];
+                    count AF_in;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term AF1_out { 
+                from {
+                    dscp [ af12 af13 ];
+                }
+                then {
+                    count AF1_out;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }   
+            }
+            term default {
+                then {
+                    count BE;
+                    loss-priority low;
+                    forwarding-class FC-Q4;
+                    accept;
+                }
+            }
+        }
+        filter AF2_SAN_vrf_[% vrf.rt %] {
+            apply-groups AF2_SAN;
+            term AF2_SAN-1-all {
+                then count AF2_SAN-all;
+            }
+            term AF2_SAN-1-pol {
+                then {
+                    policer AF2_SAN_[% vrf.ifd %].[% vrf.ifl %];
+                    loss-priority low;
+                }
+            }
+            term AF2_SAN-1-ic {
+                then count AF2_SAN-ic;
+            }
+            term AF2_SAN-1-oc {
+                then count AF2_SAN-oc;
+            }
+        }
+        filter AF1_SAN_vrf_[% vrf.rt %] {
+            apply-groups AF1_SAN;
+            term AF1_SAN-1-all {
+                then count AF1_SAN-all;
+            }
+            term AF1_SAN-1-pol {
+                then {
+                    policer AF1_SAN_[% vrf.ifd %].[% vrf.ifl %];
+                    loss-priority low;
+                }
+            }
+            term AF1_SAN-1-ic {
+                then count AF1_SAN-ic;
+            }
+            term AF1_SAN-1-oc {
+                then count AF1_SAN-oc;
+            }
+        }
+    }
+    filter Generic_Provider_Cos-FCE_vrf_[% vrf.rt %] {
+        apply-groups Generic_Provider_Cos-FCE;
+        term Generic_Provider_Cos-FCE-1-all {
+            then {
+                count Generic_Provider_Cos-FCE-all;
+            }
+        }
+        term Generic_Provider_Cos-FCE-1-pol {
+            then {
+                policer Generic_Provider_Cos-FCE_vrf_[% vrf.rt %]_policer;
+                next term;
+            }
+        }
+        term Generic_Provider_Cos-FCE-1-ic {
+            then {
+                count Generic_Provider_Cos-FCE-ic;
+            }
+        }
+        term Generic_Provider_Cos-FCE-1-oc {
+            then {
+                count Generic_Provider_Cos-FCE-oc;
+            }
+        }
+    }
+    [%- END %]
+}
+routing-instances {
+    [%- FOREACH vrf = vrfs %]
+    vrf_[% vrf.rt %] {
+        instance-type vrf;
+        interface lo0.[% vrf.lo0_unit %];
+        interface [% vrf.ifd %].[% vrf.ifl %];
+        interface lt-[% vrf.fpc %]/[% vrf.pic %]/10.[% vrf.lt_ifl_1 %];
+        route-distinguisher 12641:[% vrf.rd %];
+        vrf-import fv-import-vrf_[% vrf.rt %];
+        vrf-export fv-export-vrf_[% vrf.rt %];
+        vrf-table-label;
+        routing-options {
+            static {
+                route [% vrf.ce_lo10 %]/32 {
+                    next-hop 62.6.28.2;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    community [ 12641:65050 12641:6125 ];
+                }
+                route [% vrf.src_nat_prefix %] {
+                    next-hop 62.6.28.2;
+                    tag 6137;
+                    retain;
+                    community [16579:3001 12641:6125 ];
+                }
+                route 62.6.28.2/32 {
+                    next-hop 62.6.28.2;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    no-readvertise;
+                }
+            }
+            auto-export;
+            multipath;
+        }
+        forwarding-options {
+            family inet {
+                filter {
+                    output Generic_Provider_Cos-FCE_vrf_[% vrf.rt %];
+                }
+            }
+        }
+        protocols {
+            bgp {
+                damping;
+                group ebgp {
+                    type external;
+                    log-updown;
+                    neighbor 62.6.28.2 {
+                        hold-time 30;
+                        import [ CUSTOMER-BGP-DAMPING rm-ebgpin-vrf_[% vrf.rt %]-[% vrf.rt %] soo-import-vrf_[% vrf.rt %]-[% vrf.rt %]  ];
+                        family inet {
+                            any {
+                                prefix-limit {
+                                    maximum 500;
+                                    teardown 50 idle-timeout forever;
+                                }
+                            }
+                        }
+                        export [ soo-export-vrf_[% vrf.rt %]-[% vrf.rt %] DENYBTPREFIX-SPRING ];
+                        bfd-liveness-detection {
+                            no-adaptation;
+                            minimum-interval 999;
+                            multiplier 3;
+                        }
+                        peer-as 65001;
+                        as-override;
+                    }
+                }
+            }
+            pim {
+                rpf-selection {
+                    group 238.1.3.1/32 {
+                        wildcard-source {
+                            next-hop 108.116.0.1;
+                        }
+                    }
+                }
+                rp {
+                    static {
+                        address 192.169.0.1 {
+                             group-ranges {
+                               238.1.3.1/32;
+                            }
+                        }
+                    }
+                }
+                interface [% vrf.ifd %].[% vrf.ifl %] {
+                    mode sparse;
+                    version 2;
+                }
+                interface lt-[% vrf.fpc %]/[% vrf.pic %]/10.[% vrf.lt_ifl_1 %];
+            }
+        }
+    }
+    transport_vrf {
+        interface lt-[% vrf.fpc %]/[% vrf.pic %]/10.[% vrf.lt_ifl_2 %];
+        protocols {
+            pim {
+                interface lt-[% vrf.fpc %]/[% vrf.pic %]/10.[% vrf.lt_ifl_2 %];
+            }
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = greys %]
+    grey_[% vrf.rt %] {
+        instance-type vrf;
+        interface lo0.[% vrf.lo0_unit %];
+        interface [% vrf.ifd %].[% vrf.ifl %];
+        route-distinguisher 12641:[% vrf.rd %];
+        vrf-import fce_only_grey_import_map;
+        vrf-export fce_only_grey_export_map;
+        vrf-table-label;
+        routing-options {
+            auto-export;
+            multipath;
+            static {
+                route [% vrf.ce_lo10 %]/32 {
+                    next-hop 63.2.69.2;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+                route [% vrf.other_ce_lo10 %]/32 {
+                    next-hop 63.2.69.2;
+                    tag 4000;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+                route 63.2.69.2/32 {
+                    next-hop 63.2.69.2;
+                    no-readvertise;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                damping;
+                group ebgp {
+                    type external;
+                    log-updown;        
+                    neighbor 63.2.69.2 {
+                        hold-time 180;
+                        import [ CUSTOMER-BGP-DAMPING rm-ebgpin-grey_[% vrf.rt %] ];
+                        export CLEARINTERNALCOMM;
+                        family inet {
+                            any {
+                                prefix-limit {
+                                    maximum 500;
+                                    teardown 10 idle-timeout forever;
+                                }
+                            }
+                        }
+                        peer-as 65656;
+                        bfd-liveness-detection {
+                            no-adaptation;
+                            minimum-interval 999;
+                            multiplier 3;
+                        }
+                        as-override;
+                    }
+                }
+            }
+        }
+    }
+    [%- END %]
+    [%- FOREACH vrf = pinks %]
+    pink_[% vrf.rt %] {
+        instance-type vrf;
+        interface lo0.[% vrf.lo0_unit %];
+        interface [% vrf.ifd %].[% vrf.ifl %];
+        route-distinguisher 12641:[% vrf.rd %];
+        vrf-import pink_import_map;
+        vrf-export pink_export_map;
+        vrf-table-label;
+        routing-options {
+            auto-export;
+            multipath;
+            static {
+                route [% vrf.switch1 %]/32 {
+                    next-hop 64.2.69.2;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    community 12641:65055;
+                }
+                route [% vrf.switch2 %]/32 {
+                    next-hop 64.2.69.2;
+                    tag 101;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    community 12641:65055;
+                }
+                route 64.2.69.2/32 {
+                    next-hop 64.2.69.2;
+                    no-readvertise;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                }
+            }
+        }
+    }
+    [%- END %]
+}

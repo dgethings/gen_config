@@ -1,0 +1,429 @@
+## Last commit: 2010-04-11 19:20:30 UTC by dgethings
+version 10.0R2;
+groups {
+    lab {
+        interfaces {
+            ge-0/0/0 {
+                description crux:ge-3/1;
+            }
+            ge-0/0/1 {
+                description crux:ge-3/2;
+            }
+            ge-0/0/2 {
+                description crux:ge-3/3;
+            }
+            ge-0/0/3 {
+                description crux:ge-3/4;
+            }
+            ge-0/0/4 {
+                description crux:ge-3/5;
+            }
+            ge-0/0/5 {
+                description crux:ge-3/6;
+            }
+            ge-0/0/6 {
+                description crux:ge-3/7;
+            }
+            ge-0/0/7 {
+                description crux:ge-3/8;
+            }
+            ge-0/0/8 {
+                description polaris:ge-0/1/1;
+            }
+            ge-0/0/9 {
+                description gemini:ge-0/1/1;
+            }
+            ge-0/0/10 {
+                description hydra:ge-9/1/0;
+            }
+            ge-0/0/11 {
+                description vega:ge-9/1/0;
+            }
+            ge-0/0/12 {
+                description hydra:ge-9/0/0;
+            }
+            ge-0/0/13 {
+                description vega:ge-9/0/0;
+            }
+            ge-0/0/14 {
+                description hydra:ge-9/0/9;
+            }
+            ge-0/0/21 {
+                description "EPOC lab (JCS)";
+            }
+            ge-0/0/22 {
+                description "JTAC lab";
+            }
+            ge-0/0/23 {
+                description "JTAC lab";
+            }
+            ge-0/0/15 {
+                description vega:ge-9/1/9;
+            }
+            ge-0/0/16 {
+                description virgo:fxp0;
+            }
+            ge-0/0/17 {
+                description virgo:fxp1;
+            }
+        }
+    }
+    juniper-ais {
+        system {
+            scripts {
+                commit {
+                    allow-transients;
+                    file jais-activate-scripts.slax {
+                        optional;
+                    }
+                }
+            }
+        }
+        interfaces {
+            lo0 {
+                unit 0 {
+                    family inet {
+                        address 127.0.0.1/32;
+                    }
+                }
+            }
+        }
+        event-options {
+            destinations {
+                juniper-aim {
+                    archive-sites {
+                        "scp://netconf@127.0.0.1://var/tmp" password "$9$ZWDi.tpBylM"; ## SECRET-DATA
+                    }
+                }
+            }
+        }
+    }
+}
+apply-groups [ juniper-ais lab ];
+system {
+    host-name bellatrix;
+    domain-name jtac-emea.jnpr.net;
+    domain-search [ jtac-emea.jnpr.net jnpr.net ];
+    backup-router 172.30.155.1 destination 172.16.0.0/12;
+    authentication-order [ radius password ];
+    root-authentication {
+        encrypted-password "$1$bYrlmtJ0$KvTATFhW/XCit.PeUk1su/"; ## SECRET-DATA
+    }
+    name-server {
+        172.30.155.131;
+    }
+    radius-server {
+        172.30.155.131 {
+            port 1812;
+            secret "$9$H.mTn/t1RhQFnCpuEhdbw2JGik."; ## SECRET-DATA
+        }
+    }
+    login {
+        user remote {
+            uid 2000;
+            class super-user;
+        }
+    }
+    services {
+        ssh;
+        netconf {
+            ssh;
+        }
+        outbound-ssh {
+            client 000c2940650c {
+                device-id F02FDE;
+                secret "$9$wOg4JUjHkmfDjCt0BEh-Vbw4a"; ## SECRET-DATA
+                services netconf;
+                172.30.155.152 port 7804;
+            }
+            client 000C29EDA63E {
+                device-id 354DC2;
+                secret "$9$y-8l8XVbYoZUHqO1RcleaZGDjk"; ## SECRET-DATA
+                services netconf;
+                172.30.155.152 port 7804;
+            }
+        }
+    }
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any notice;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+        file default-log-messages {
+            any any;
+            structured-data;
+        }
+    }
+}
+interfaces {
+    ge-0/0/0 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/1 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/2 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/3 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/4 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/5 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/6 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/7 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/8 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/9 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode access;
+            }
+        }
+    }
+    ge-0/0/10 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/11 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/12 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/13 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/14 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/15 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/16 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    ge-0/0/17 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode access;
+            }
+        }
+    }
+    ge-0/0/18 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode access;
+            }
+        }
+    }
+    ge-0/0/19 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/20 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/21 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/22 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/0/23 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode trunk;
+            }
+        }
+    }
+    ge-0/1/0 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    xe-0/1/0 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    ge-0/1/1 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    xe-0/1/1 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    ge-0/1/2 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    ge-0/1/3 {
+        unit 0 {
+            family ethernet-switching;
+        }
+    }
+    ge-1/1/7 {
+        unit 0 {
+            family ethernet-switching {
+                port-mode access;
+            }
+        }
+    }
+    me0 {
+        unit 0 {
+            family inet {
+                address 172.30.155.134/24;
+            }
+        }
+    }
+}
+routing-options {
+    static {
+        route 172.16.0.0/12 {
+            next-hop 172.30.155.1;
+            retain;
+            no-readvertise;
+        }
+    }
+}
+protocols {
+    igmp-snooping {
+        vlan all {
+            disable;
+        }
+    }
+    stp {
+        interface ge-0/0/17.0 {
+            disable;
+        }
+        interface ge-0/0/18.0 {
+            disable;
+        }
+    }
+    inactive: rstp {
+        bridge-priority 4k;
+    }
+    inactive: vstp {
+        vlan JCS-RR-IXIA;
+        vlan JCS-RR-fxp0.1;
+        vlan JCS-RR-fxp1.1;
+    }
+    lldp {
+        interface all;
+    }
+    lldp-med {
+        interface all;
+    }
+}
+security {
+    ssh-known-hosts {
+        host 127.0.0.1 {
+            rsa-key AAAAB3NzaC1yc2EAAAABIwAAAQEAnNMFDVH1Ss4KqO4W+++ywzXfFWEzhGmKY/GZr8AniV3AkWw5szyYLVzh/Doi9vL/y7JCF7vg2SV5R/iCse6UaPWPERkugAEugXKzaQvZGuuwqlWbg2aAd6CZy4vK3KjA69XTDJlUscZ5mmUTcNFoi9C7b6v+J9I3CipqqExKPIuqP44Eoc6IdwICgODQ4jJXNelTKUD086FZH2RlLpSpgGKouRuEC/idB4gI4O0SfAXbBHD1Lwsjt6LojZqN6/8Y99FN3BcNzuNOTJNN+oUyG88ZRdYDgFnIVWTW2Nva7WNy8t2tB2VtZOyuXAljXiWmLSKQUfFhovoDrJekmnWhjQ==;
+            dsa-key AAAAB3NzaC1kc3MAAACBAMpjuiu+WOcj7Wnm8e5NJOjUWwszmbOOAFtTq0ydkdTIwu7m6ytuBpibP0HQlomxzrw/bzZuYC8Y99/EltBtjlnYII0AzUED9wMzyaao1AdC5E+uNeekj6qWyPZeEuCd88zEHVo0NndNZ44I6z6uB7/h92k5Z1gUNPNkcRsUDVoFAAAAFQDkyHMqUguTIBIi0ZT0eXwixmuh7QAAAIEAjtCU/Xl2uuGo6ETnlS++CEj+9vPGzbIRJMv9HfYQAFxOOs+zUyOul0WetI0uTRXv+3c7Jyq3AaqAV5B7lxZSBlTiw3kfnWyn+Avzwf0vo/6ap9JpVtA52jH6MHN0CE9iBjE/mBkTO3MBGmipHYIv/sGY3Y/gwDBwg9HysVp1ARsAAACAIRgKLMakhmwSYkJcbbVHiTcO/fgoeS79nSfrCNnyz6cpSC4VUsT1vXyb6Qgr91L+FJ8i2JImm3JxZQMKXw2AtNZKf/ErvobMRMfEv1tkapjGR2zwUmrJJdxEEy8WYVP7wQEy93ftgY1bjZpE0sKjq8wZLvAke9F80bYAV2OBBPw=;
+        }
+    }
+}
+ethernet-switching-options {
+    dot1q-tunneling {
+        ether-type 0x8100;
+    }
+}
+poe {
+    interface all;
+}

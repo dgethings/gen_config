@@ -1,0 +1,136 @@
+
+# 
+# 
+# By default the next-generation SONET/SDH POS PICs support up to 4 Class of 
+# Service queues per port, the BT MPLS network requires support for 8 queues,
+# the following command enables 8 queues on all ports of the PIC. 
+# 
+# 
+#
+
+set chassis fpc $slot$ pic $bay$ max-queues-per-interface 8
+
+#
+# For the legacy POS PICs, framing must
+# be configured at the PIC level 
+# 
+
+set chassis fpc $slot$ pic $bay$ framing sdh  
+#
+# For the newer generation POS PICs, framing must
+# be configured at the interface level 
+# 
+
+set interfaces $interface_identifier$ framing sdh   
+set interfaces $interface_identifier$ description “<Physical_bearer_details>”
+set interfaces $interface_identifier$ traps
+
+#
+# For the newer generation POS PICs, the physical
+# speed should be set to OC48 for STM-16 trunks, 
+# to OC12 for STM-4 trunks, or OC3 for STM-1 trunks 
+# 
+
+set interfaces $interface_identifier$ speed <oc48 | oc12 | oc3>
+
+# 
+# Clock should be set to internal on the Juniper end 
+# the Cisco end would be configured for line clocking
+# on direct back-to-back intra-PoP links
+# 
+
+set interfaces $interface_identifier$ clock internal  
+
+# 
+# 
+# The CISCO 12410 router does not support MPLS over IETF Frame Relay 
+# encapsulation at line rate. The POS trunk to a 12410 must be therefore configured # for CISCO Frame Relay encapsulation
+# 
+# 
+
+set interfaces $interface_identifier$ encapsulation frame-relay-ether-type  
+
+# 
+# 
+# The CISCO 7304, Cisco 7206VXR, CISCO 10008, M320 and MX960 routers do support     # MPLS over IETF Frame Relay encapsulation at line rate. 
+# The POS trunk to a 7206VXR, 7304, 10008, M320 or M960 must be therefore 
+# configured for IETF Frame Relay encapsulation.
+# 
+# 
+
+set interfaces $interface_identifier$ encapsulation frame-relay  
+
+# Where a trunk connects an Juniper and a CISCO the Juniper should be left 
+# as the default dte while the CISCO is dce. This avoids issues arising 
+# from differing defaults.
+
+set interfaces $interface_identifier$ no-keepalive
+set interfaces $interface_identifier$ sonet-options fcs 32
+set interfaces $interface_identifier$ hold-time up 10000 down $d_time$
+set interfaces $interface_identifier$ sonet-options trigger rfi-p hold-time up 2000 down $d_time$
+set interfaces $interface_identifier$ sonet-options rfc-2615
+
+# 
+# Payload scrambling should be enabled on STM-16 trunks to Cisco 12410 routers 
+# (payload scrambling cannot be disabled on the GSR OC48
+# SPAs) 
+# 
+
+set interfaces $interface_identifier$ sonet-options payload-scrambler  
+
+# 
+# Payload scrambling should be disabled on STM-4 and STM-1 trunks 
+#
+# Payload scrambling should be disabled on STM16 trunks to other M320,M960 
+# 10008,7304, and 7206VXR routers
+# 
+
+set interfaces $interface_identifier$ sonet-options no-payload-scrambler
+
+
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ point-to-point
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ description “$white_sub_interface_description$”
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ dlci $white_sub_interface_id$ 
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ inverse-arp
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ family inet address $ip_address$/30
+set interfaces $interface_identifier$ unit $white_sub_interface_id$ family mpls
+
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$ point-to-point
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$ description “$red/blue_sub_interface_description$”
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$  dlci $coloured_sub_interface_id$
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$  inverse-arp
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$  family inet address $ip_address$/30
+set interfaces $interface_identifier$ unit $coloured_sub_interface_id$  family mpls
+
+
+# White Subinterface routing
+
+set protocols ospf area $OSPF_area$ interface $interface_identifier$.$white_sub_interface_id$ metric $ospf_metric$
+set protocols ospf area $OSPF_area$ interface $interface_identifier$.$white_sub_interface_id$ hello-interval $OSPF_hello_timer$
+set protocols ospf area $OSPF_area$ interface $interface_identifier$.$white_sub_interface_id$ dead-interval $OSPF_dead_timer$
+set protocols ospf area $OSPF_area$ interface $interface_identifier$.$white_sub_interface_id$ ldp-synchronization  
+
+
+set protocols ospf area $OSPF_area$ interface $interface_identifier$.$white_sub_interface_id$ authentication md5 $key_id$ key “$secret_key$” start-time “$yyyy-mm-dd.hh:mm$” 
+
+set protocols ldp interface $interface_identifier$.$white_sub_interface_id$
+set protocols mpls interface $interface_identifier$.$white_sub_interface_id$
+set protocols rsvp interface $interface_identifier$.$white_sub_interface_id$ bandwidth 12m
+set protocols pim interface $interface_identifier$.$white_sub_interface_id$ mode sparse
+set protocols pim interface $interface_identifier$.$white_sub_interface_id$ version 2
+
+# Coloured (Red/Blue) Subinterface routing
+
+set routing-instances $red|blue$ interface $interface_identifier$.$coloured_sub_interface_id$ 
+set routing-instances $red|blue$ protocols ospf area $OSPF_area$ interface $interface_identifier$.$coloured_sub_interface_id$ metric $ospf_metric$
+set routing-instances $red|blue$ protocols ospf area $OSPF_area$ interface $interface_identifier$.$coloured_sub_interface_id$ hello-interval $OSPF_hello_timer$
+set routing-instances $red|blue$ protocols ospf area $OSPF_area$ interface $interface_identifier$.$coloured_sub_interface_id$ dead-interval $OSPF_dead_timer$
+set routing-instances $red|blue$ protocols ospf area $OSPF_area$ interface $interface_identifier$.$coloured_sub_interface_id$ ldp-synchronization   
+
+set routing-instances $red|blue$ protocols ospf area $OSPF_area$ interface $interface_identifier$.$coloured_sub_interface_id$ authentication md5 $key_id$ key “$secret_key$” start-time “$yyyy-mm-dd.hh:mm$” 
+
+set protocols ldp interface $interface_identifier$.$coloured_sub_interface_id$
+
+set protocols pim interface $interface_identifier$.$coloured_sub_interface_id$ mode  sparse 
+set protocols pim interface $interface_identifier$.$coloured_sub_interface_id$ version 2 
+

@@ -1,0 +1,140 @@
+interfaces {
+	$physical_interface {
+        description "$physical_interface_description";
+        traps;
+        vlan-tagging;
+        hierarchical-scheduler;
+        mtu $mtu_size$;
+        hold-time up 2000 down 2000;
+		unit $logical_interface$ {
+            /* vrf $grey_vrfname */
+            description "$unit_interface_description$";
+            vlan-id $logical_interface$;
+            family inet {
+                mtu 1500;
+                address $ipaddress$/30;
+                filter {
+                    input $grey_in$;
+                    output $grey_out$;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit $grey_vrf_lo0_logical_int$ {
+            /* vrf $grey_vrfname */
+            description "$grey_vrf_lo0_int_descr$";
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address $vrf_lo0_ip_addr$/32;
+            }
+        }
+    }
+}
+policy-options {
+    prefix-list ebgp-in-$grey_vrfname$ {
+        $vrf_lo0_ip_addr$/32;
+        $grey-other-loopback10$/32;
+        $grey-loopback12$/32;
+    }
+	policy-statement rm-ebgpin-$grey_vrfname$ {
+        term allow-ce-loops {
+            from {
+                protocol bgp;
+                community [ grey-own-loopback10 grey-other-loopback10 grey-loopback12 ];
+                prefix-list ebgp-in-$grey_vrfname$;
+            }
+            then accept;
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+}
+class-of-service {
+    interfaces {
+        $physical_interface$ {
+            scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+			unit $logical_interface$ {
+                output-traffic-control-profile grey-500k-POUT;
+            }
+        }
+    }
+}
+routing-instances {
+    $grey_vrfname$ {
+        instance-type vrf;
+		interface lo0.$grey_vrf_lo0_logical_int$;
+		interface $physical_interface$.$logical_interface$;
+        route-distinguisher 12641:$RD_number$;
+        vrf-import $import_policy_statement$;
+        vrf-export $export_policy_statement$;
+        vrf-table-label;
+        routing-options {
+            auto-export;
+            multipath;
+			static {
+                route $vrf_lo0_ip_addr$/32 {
+                    next-hop $nexthop;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+				route $grey-other-loopback10$/32 {
+                    next-hop $nexthop;
+                    tag 4000;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+                route $ce_wan_ipaddress$/32 {
+                    next-hop $nexthop;
+                    no-readvertise;
+		        	bfd-liveness-detection {
+    		            no-adaptation;
+						minimum-interval 999;
+    		            multiplier 3;
+                }
+            }
+        }
+		protocols {
+            bgp {
+            	damping;
+                group ebgp {
+                    type external;
+                    log-updown;		
+                    neighbor $grey-ce-wan-ip$ {
+                        hold-time 180;
+                        import [ CUSTOMER-BGP-DAMPING rm-ebgpin-$grey_vrfname$ ];
+                        export CLEARINTERNALCOMM;
+                        family inet {
+                            any {
+                                prefix-limit {
+                                    maximum 500;
+                                    teardown 10 idle-timeout forever;
+                                }
+                            }
+                        }
+                        peer-as $CE_ASN;
+                        bfd-liveness-detection {
+                            no-adaptation;
+                            minimum-interval 999;
+                            multiplier 3;
+                        }
+                        as-override;
+                    }
+                }
+            }
+        }
+    }
+}

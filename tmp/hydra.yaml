@@ -1,0 +1,25 @@
+- template: BT/GS/HSPE/base.erb
+  SAA_rt_PoP: 2
+  blue_instance_IP_address: 1.1.1.2
+  red_instance_IP_address: 1.1.1.3
+  location: Amsterdam
+  D_REGIONAL_RT: 1
+  loopback_address: 1.1.1.1
+  loopback_address_200: 1.1.1.200
+  rr_primary_address: 10.0.0.1
+  rr_secondary_address: 10.0.0.2
+  leaf_area_ID: 0.0.0.9
+
+- template: BT/GS/HSPE/10GE-core-interface.erb
+  OSPF_area: 0.0.0.9
+  interface_identifier: xe-9/2/0
+  blue_ip_address: 11.0.1.2
+  red_ip_address: 11.0.2.2
+  white_ip_address: 11.0.0.2
+
+- template: BT/GS/HSPE/10GE-core-interface.erb
+  OSPF_area: 0.0.0.9
+  interface_identifier: xe-9/3/0
+  blue_ip_address: 11.1.1.2
+  red_ip_address: 11.1.2.2
+  white_ip_address: 11.0.0.2

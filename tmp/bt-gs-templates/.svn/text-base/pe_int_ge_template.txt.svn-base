@@ -1,0 +1,135 @@
+interfaces {
+	$interface_identifier$ {
+		traps;
+		vlan-tagging;
+		mtu 1718;
+		hold-time up 2000 down 0;
+		unit 15 {
+			description "white vlan";
+			vlan-id 15;
+			family inet {
+				mtu 1688;
+				address $white_ip_address$/$mask$;
+			}
+			family mpls {
+				mtu 1700;
+			}
+		}
+		unit 65 {
+			description "red vlan";
+			vlan-id 65;
+			family inet {
+				mtu 1500;
+				address $red_ip_address$/$mask$;
+			}
+			family mpls {
+				mtu 1552;
+			}
+		}
+		unit $blue_sub_interface_id$ {
+			description "blue vlan";
+			vlan-id $blue_sub_interface_id$;
+			family inet {
+				mtu 1500;
+				address $blue_ip_address$/$mask$;
+			}
+			family mpls {
+				mtu 1552;
+			}
+		}
+	}
+}
+protocols {
+	ospf {
+		area $OSPF_area$ {
+			interface $interface_identifier$.15 {
+				metric $ospf_metric$;
+				interface-type p2p;
+				hello-interval 10;
+				dead-interval 40;
+				priority $OSPF_priority$;
+				ldp-synchronization;
+				authentication {
+					md5 1 key juniper123 start-time "2010-01-01.00:00";
+				}
+				bfd-liveness-detection {
+					minimum-interval 300;
+					multiplier 3;
+					no-adaptation;
+				}
+			}
+		}
+	}
+	ldp {
+		interface $interface_identifier$.15;
+		interface $interface_identifier$.65;
+		interface $interface_identifier$.75;
+	}
+	mpls {
+		interface $interface_identifier$.15;
+	}
+	rsvp {
+		interface $interface_identifier$.15 {
+			bandwidth 12m;
+		}
+	}
+	pim {
+		interface $interface_identifier$.15 {
+			mode sparse;
+			version 2;
+			priority 0;
+		}
+		interface $interface_identifier$.65 {
+			mode sparse;
+			version 2;
+			priority 0;
+		}
+		interface $interface_identifier$.75 {
+			mode sparse;
+			version 2;
+			priority 0;
+		}
+	}
+}
+routing-instances {
+	red {
+		interface $interface_identifier$.65;
+		protocols {
+			ospf {
+				area $OSPF_area$ {
+					interface $interface_identifier$.65 {
+						metric $ospf_metric$;
+						interface-type p2p;
+						hello-interval 10;
+						dead-interval 40;
+						priority $OSPF_priority$;
+						ldp-synchronization;
+						authentication {
+							md5 1 key juniper123 start-time "2010-01-01.00:00";
+						}
+					}
+				}
+			}
+		}
+	}
+	blue {
+		interface $interface_identifier$.75;
+		protocols {
+			ospf {
+				area $OSPF_area$ {
+					interface $interface_identifier$.75 {
+						metric $ospf_metric$;
+						interface-type p2p;
+						hello-interval 10;
+						dead-interval 40;
+						priority $OSPF_priority$;
+						ldp-synchronization;
+						authentication {
+							md5 1 key juniper123 start-time "2010-01-01.00:00";
+						}
+					}
+				}
+			}
+		}
+	}
+}

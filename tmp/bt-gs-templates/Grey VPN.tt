@@ -1,0 +1,138 @@
+interfaces {
+	[%- FOREACH vrf = greys %]
+	[% vrf.ifd %] {
+		unit [% vrf.ifl %] {
+            vlan-id [% vrf.ifl %];
+            family inet {
+                mtu 1500;
+                address 63.2.69.1/30;
+                filter {
+                    input grey-IN-500k;
+                    output grey-OUT;
+                }
+            }
+        }
+    }
+    lo0 {
+        unit [% vrf.lo0_unit %] {
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address [% vrf.lo0_ip_addr %]/32;
+            }
+        }
+    }
+	[%- END %]
+}
+policy-options {
+	[%- FOREACH vrf = greys]
+    prefix-list ebgp-in-grey_[% vrf.rt %] {
+        [% vrf.lo0_ip_addr %]/32;
+        [% vrf.other_ce_lo10 %]/32;
+        10.11.0.1/32;
+    }
+	policy-statement rm-ebgpin-grey_[% vrf.rt %] {
+        term allow-ce-loops {
+            from {
+                protocol bgp;
+                community [ grey-own-loopback10 grey-other-loopback10 grey-loopback12 ];
+                prefix-list ebgp-in-grey_[% vrf.rt %];
+            }
+            then accept;
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+	[%- END %]
+}
+class-of-service {
+    interfaces {
+		[%- FOREACH vrf = greys %]
+        [% vrf.ifd %] {
+            scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+			unit [% vrf.ifl %] {
+                output-traffic-control-profile grey-500k-POUT;
+            }
+        }
+		[%- END %]
+    }
+}
+routing-instances {
+	[%- FOREACH vrf = greys %]
+    grey_[% vrf.rt %] {
+        instance-type vrf;
+		interface lo0.[% vrf.lo0_unit %];
+		interface [% vrf.ifd %]$.[% vrf.ifl %];
+        route-distinguisher 12641:[% vrf.rd %];
+        vrf-import fce_only_grey_import_map;
+        vrf-export fce_only_grey_export_map;
+        vrf-table-label;
+        routing-options {
+            auto-export;
+            multipath;
+			static {
+                route [% vrf.ce_lo10 %]/32 {
+                    next-hop 63.2.69.2;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+				route [% vrf.other_ce_lo10 %]/32 {
+                    next-hop 63.2.69.2;
+                    tag 4000;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    preference 171;
+                    community 12641:65050;
+                }
+                route 63.2.69.2/32 {
+                    next-hop 63.2.69.2;
+                    no-readvertise;
+		        	bfd-liveness-detection {
+    		            no-adaptation;
+						minimum-interval 999;
+    		            multiplier 3;
+                }
+            }
+        }
+		protocols {
+            bgp {
+            	damping;
+                group ebgp {
+                    type external;
+                    log-updown;		
+                    neighbor 63.2.69.2 {
+                        hold-time 180;
+                        import [ CUSTOMER-BGP-DAMPING rm-ebgpin-grey_[% vrf.rt %] ];
+                        export CLEARINTERNALCOMM;
+                        family inet {
+                            any {
+                                prefix-limit {
+                                    maximum 500;
+                                    teardown 10 idle-timeout forever;
+                                }
+                            }
+                        }
+                        peer-as 65656;
+                        bfd-liveness-detection {
+                            no-adaptation;
+                            minimum-interval 999;
+                            multiplier 3;
+                        }
+                        as-override;
+                    }
+                }
+            }
+        }
+    }
+	[%- END %]
+}

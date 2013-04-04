@@ -1,0 +1,586 @@
+interfaces {
+	$physical_interface$  {
+		traps;
+		vlan-tagging;
+		hierarchical-scheduler;
+		mtu 1518;
+		hold-time up 0 down 2000;
+        unit $logical_interface$ {
+            description $subinterface_description$;
+            vlan-id $vlan$;
+            family inet {
+                mtu 1500;
+                address $ip_address$/30; 
+				filter {
+					input $customer_name$-IN-$physical_interface$.$logical-interface$;                     
+					output $customer_name$-OUT-$physical_interface$.$logical_interface$;
+				}
+            }
+        }
+	}
+	lo0 {
+		unit $vrf_lo0_logical_int$ { 
+			description "$vrf_lo0_int_description$"
+			family inet {
+				filter {
+					input protect-RE-VRF;
+				}
+				address $vrf_lo0_ip_addr$/32;            }
+			}
+		}
+	}
+}
+policy-options {
+    policy-statement $vrf_import_map$ {
+       term NMC-routes {
+           from {
+               protocol bgp;
+               community $greynet_hub_rt$;
+               
+           }
+           then accept;
+       }
+        term VPN-routes  {
+            from {
+                protocol bgp;
+                community $vrf_import_rt_set$;
+            }
+            then accept;
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+    policy-statement $vrf_export_map$ {
+        term VRF-loopback {
+            from {
+                protocol direct;
+                prefix-list-filter ACL-8-loopback200 orlonger;
+            }
+            then {
+                community add BT-MPLS-PE-VRF-loopback-SET;
+                community add $vrf_export_rt_set$;
+                accept;
+            }
+        }
+        term tag-101 {
+           from {
+              protocol static;
+              tag 101;
+           }
+           then {
+               local-preference 50;
+               next term;
+           }
+        }
+        term 11-CE-mgmt-loopbacks {
+            from {
+                prefix-list-filter ACL-11-CE-mgmt-loopbacks orlonger;
+            }
+            then {
+                community add BT-MPLS-CE-loopback-SET;
+                community add $vrf_export_rt_set$;
+                community add $greynet_spoke_rt_set$;
+                accept;
+            }
+        }
+        term 13-cascaded-mgmt {
+            from {
+                prefix-list-filter ACL-13-cascaded-mgmt orlonger;
+            }
+            then {
+                community add BT-MPLS-cascaded-mgmt-SET;
+                community add $vrf_export_rt_set$;
+                community add $greynet_spoke_rt_set$;
+                accept;
+            }
+        }
+        term bgp {
+            from  {
+            protocol bgp;
+            }
+            then {
+                community add $vrf_export_rt_set$;
+                accept;
+            }
+        }
+        term static {
+                from {
+                  protocol static;
+                }
+               then {
+                 community add $vrf_export_rt_set$;
+                 accept;
+              }
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+    community $vrf_import_rt_set$ members target:12641:$import_RT$;
+    community $vrf_export_rt_set$ members target:12641:$export_RT$;
+}
+routing-instances {
+	$vrf_name$ {
+		instance-type vrf;
+		route-distinguisher 12641:$RD_number$;        
+		vrf-table-label;
+		vrf-export $vrf_export_map$;
+		vrf-import $vrf_import_map$;
+		interface lo0.$vrf_lo0_logical_int$;
+		interface $physical_interface$.$logical_interface$;
+		routing-options {
+			static {
+				route $CE_int_IP_address$/32 {
+					next-hop $CE_int_IP_address$;
+					community 12641:6100;
+				}
+				route $CE_mgmt_IP_address$/32 {
+					next-hop $CE_int_IP_address$;
+				}
+				route $cpe_lan_ip_addr$/32 {
+					next-hop $CE_IP_address$;
+				}
+			}
+			multipath {
+				vpn-unequal-cost;
+			}
+		}
+		protocols {
+			bgp {
+				damping;
+				group $bgp_group$ {
+					type external;
+					log-updown;
+					neighbor $CE_int_IP_address$ {
+						as-override;
+						import [ CUSTOMER-BGP-DAMPING $CE_import_policy$ ];
+						export $CE_export_policy$;
+						peer-as $CE_AS_Number$;
+						hold-time 30;            
+						out-delay 0; 
+						family inet {
+							any {
+								prefix-limit {
+									maximum $prefix_limit$;
+									teardown $threshold$ idle-timeout forever;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+firewall {
+    policer $aggregate_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRaggregate$;
+            burst-size-limit $aggregate_burst$;
+        }
+        then {
+            discard;
+        }
+    }
+    policer $ef_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPREF$;
+            burst-size-limit $EF_burst$;
+        }
+        then {
+            discard;
+        }
+    }
+    policer $mgmt_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRmgmt$;
+            burst-size-limit $mgmt_burst$;
+        }           
+        then {
+            loss-priority high;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer $af4_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRAF4$;
+            burst-size-limit $AF4_burst$;
+        }
+        then {
+            loss-priority high;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer $af3_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRAF3$;
+            burst-size-limit $AF3_burst$;
+        }
+        then {
+            loss-priority high;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer $af2_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRAF2$;
+            burst-size-limit $AF2_burst$;
+        }
+        then {
+            loss-priority high;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer $af1_policer$ {
+        if-exceeding {
+            bandwidth-limit $CIPRAF1$;
+            burst-size-limit $AF2_burst$;
+        }
+        then {
+            loss-priority high;
+            forwarding-class FC-Q6;
+        }
+    }
+    family inet {     
+        filter $customer_name$-IN-$physical_interface$.$logical_interface$ {
+            interface-specific;
+            term security {
+               filter input-filter-bun-num;
+            }
+            term pe_aggregate_input {
+                then {
+                    policer $aggregate_policer$;
+                    next term;
+                }
+            }
+            term pe_mgmt_bun_input {
+                from {
+                    destination-prefix-list {
+                        ACL-122-bt-nmc-mgmt;
+                    }
+                }
+                then {
+                    policer $mgmt_policer$;
+                    count pe_mgmt_bun_input;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }  
+            term pe_ef_input {
+                from {
+                    dscp [ ef cs5 ];
+                }
+                then {
+                    policer $ef_policer$;
+                    count pe_ef_input;
+                    loss-priority low;
+                    forwarding-class FC-Q5;
+                    accept;
+                }
+            }
+            term pe_af4_in_input {
+                from {
+                    dscp [ af41 cs4 ];
+                }
+                then {
+                    policer $af4_policer$;
+                    count pe_af4_in_input;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af4_out_input {
+                from {
+                    dscp [ af42 af43 ];
+                }
+                then {
+                    count pe_af4_out_input;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af3_in_input {
+                from {
+                    dscp [ af31 cs3 ];
+                }
+                then {
+                    policer $af3_policer$;
+                    count pe_af3_in_input;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }   
+            }
+            term pe_af3_out_input {
+                from {
+                    dscp [ af32 af33 ];
+                }
+                then {
+                    count pe_af3_out_input;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af2_in_input {
+                from {
+                    dscp [ af21 cs2 ];
+                }
+                then {
+                    policer $af2_policer$;
+                    count pe_af2_in_input;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af2_out_input {
+                from {
+                    dscp [ af22 af23 ];
+                }
+                then {
+                    count pe_af2_out_input;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af1_in_input {
+                from {
+                    dscp [ af11 cs1 ];
+                }
+                then {
+                    policer $af1_policer$;
+                    count pe_af1_in_input;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }   
+            }
+            term pe_af1_out_input {
+                from {
+                    dscp [ af12 af13 ];
+                }
+                then {
+                    count pe_af1_out_input;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_be_input {
+                then {
+                    count pe_be_input;
+                    loss-priority low;
+                    forwarding-class FC-Q4-Bleach;/* FC-Q4 in case of non bleach */
+                    accept;
+                }
+            }
+        }
+        filter $customer_name$-OUT-$physical_interface$.$logical_interface$ {
+            interface-specific;
+            term pe_mgmt_bun_output {
+                from {
+                   source-prefix-list ACL-123-bt-nmc-mgmt;
+                }
+                then {
+                    count pe_mgmt_bun_output;
+                    loss-priority low;
+                    forwarding-class FC-Q0;
+                    accept;
+                }
+            }
+            term pe_ef_output {
+                from {
+                    dscp [ ef cs5 ];
+                }
+                then {
+                    count pe_ef_output;
+                    loss-priority low;
+                    forwarding-class FC-Q5;
+                    accept;
+                }
+            }
+            term pe_af4_in_output {
+                from {
+                    dscp [ af41 cs4 ];
+                }
+                then {
+                    count pe_af4_in_output;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af4_out_output {
+                from {
+                    dscp [ af42 af43 ];
+                }
+                then {
+                    count pe_af4_out_output;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term pe_af3_in_output {
+                from {
+                    dscp [ af31 cs3 ];
+                }
+                then {
+                    count pe_af3_in_output;
+                    loss-priority low;
+                    forwarding-class FC-Q7;
+                    accept;
+                }
+            }
+            term pe_af3_out_output { 
+                from {
+                    dscp [ af32 af33 ];
+                }
+                then {
+                    count pe_af3_out_output;
+                    loss-priority high;
+                    forwarding-class FC-Q7;
+                    accept;
+                }
+            }
+            term pe_af2_in_output {
+                from {
+                    dscp [ af21 cs2 ];
+                }
+                then {
+                    count pe_af2_in_output;
+                    loss-priority low;
+                    forwarding-class FC-Q2;
+                    accept;
+                }
+            }
+            term pe_af2_out_output {
+                from {
+                    dscp [ af22 af23 ];
+                }
+                then {
+                    count pe_af2_out_output;
+                    loss-priority high;
+                    forwarding-class FC-Q2;
+                    accept;
+                }
+            }
+            term pe_af1_in_output {
+                from {
+                    dscp [ af11 cs1 ];
+                }
+                then {
+                    count pe_af1_in_output;
+                    loss-priority low;
+                    forwarding-class FC-Q1;
+                    accept;
+                }
+            }
+            term pe_af1_out_output {
+                from {
+                    dscp [ af12 af13 ];
+                }   
+                then {
+                    count pe_af1_out_output;
+                    loss-priority high;
+                    forwarding-class FC-Q1;
+                    accept;
+                }
+            }
+            term pe_be_output {
+                then {
+                    count pe_be_output;
+                    loss-priority low;
+                    forwarding-class FC-Q4;
+                    accept;
+                }
+            }
+        }
+    }
+}
+class-of-service {
+	interfaces {
+		$physical_interface$ {
+			scheduler-map-chassis scheduler_map_chassis_1Gbps_cpa_cppc;
+			unit $logical_interface${
+				output-traffic-control-profile $customer_name$-POUT-$physical_interface$.$logical_interface$ ;            
+			}
+		}
+	}
+    traffic-control-profiles {
+        $customer_name$-POUT-$physical_interface$.$logical_interface$ {
+            scheduler-map $customer_name$-SOUT-$physical_interface$.$logical_interface$;
+            shaping-rate $aggregate_shaping_rate$;
+        }
+    }
+    scheduler-maps {             
+		$customer_name$-SOUT-$physical_interface$.$logical_interface$ {
+            forwarding-class FC-Q0 scheduler Class_Mgmt_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q3 scheduler Class_Cntrl_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q5 scheduler Class_EF_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q6 scheduler Class_AF4_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q7 scheduler Class_AF3_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q2 scheduler Class_AF2_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q1 scheduler Class_AF1_$physical_interface$.$logical_interface$;
+            forwarding-class FC-Q4 scheduler Class_BE_$physical_interface$.$logical_interface$;
+        }    
+    }
+    schedulers {
+        Class_Mgmt_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $mgmt_tx_rate_percentage$;
+            buffer-size temporal $mgmt_buffer_size$;
+            priority low;
+           drop-profile-map loss-priority low protocol any drop-profile traffic-in-contract-drop-profile;
+        }
+        Class_Cntrl_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $cntrl_tx_rate_percentage$;
+            buffer-size temporal $cntrl_buffer_size$;
+            priority low;
+        }
+        Class_EF_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $ef_tx_rate_percentage$ rate-limit;
+            buffer-size temporal $ef_buffer_size$;
+            priority high;
+        }
+        Class_AF4_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $af4_tx_rate_percentage$;
+            buffer-size temporal $af4_buffer_size$;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile traffic-in-contract-drop-profile;
+            drop-profile-map loss-priority high protocol any drop-profile traffic-out-contract-drop-profile;
+        }
+        Class_AF3_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $af3_tx_rate_percentage$;
+            buffer-size temporal $af3_buffer_size$;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile traffic-in-contract-drop-profile;
+            drop-profile-map loss-priority high protocol any drop-profile traffic-out-contract-drop-profile;
+        }
+        Class_AF2_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $af2_tx_rate_percentage$;
+            buffer-size temporal $af2_buffer_size$;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile traffic-in-contract-drop-profile;
+            drop-profile-map loss-priority high protocol any drop-profile traffic-out-contract-drop-profile;
+        }
+        Class_AF1_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $af1_tx_rate_percentage$;
+            buffer-size temporal $af1_buffer_size$;
+            priority low;
+            drop-profile-map loss-priority low protocol any drop-profile traffic-in-contract-drop-profile;
+            drop-profile-map loss-priority high protocol any drop-profile traffic-out-contract-drop-profile;
+        }
+        Class_BE_$physical_interface$.$logical_interface$ {
+            transmit-rate percent $be_tx_rate_percentage$;
+            buffer-size temporal $be_buffer_size$;
+            priority low; 
+           drop-profile-map loss-priority low protocol any drop-profile traffic-out-contract-drop-profile;
+        }
+    }     
+}

@@ -1,0 +1,10 @@
+- template: BT/GS/HSPE/base.erb
+  SAA_rt_PoP:
+  loopback_address:
+  loopback_address_200:
+  red_instance_IP_address:
+  rr_primary_address:
+  rr_secondary_address:
+  D_REGIONAL_RT:
+  location: Amsterdam
+  leaf_area_ID:

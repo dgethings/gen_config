@@ -1,0 +1,40 @@
+interfaces {
+    $physical_interface$  {
+        description "$physical_interface_description$";
+        traps;
+        vlan-tagging;
+        hierarchical-scheduler;
+        mtu 1518;
+        hold-time up 2000 down 2000;
+        unit $logical_interface$ {
+            description $subinterface_description$;
+            vlan-id $vlan$;
+            family inet {
+                mtu 1500;
+                address $ip_address$/30;
+            }
+        }
+    }
+    lo0 {
+        unit $vrf_lo0_logical_int$ {
+            description "$vrf_lo0_int_descr$";
+            family inet {
+                address $dummy_ip_address$/32;
+                address $vrf_lo0_ip_addr$/32  {
+                    primary;
+                    preferred;
+                }
+            }
+        }
+    }
+}
+routing-instances {
+    $transport_vrf_name$ {
+        interface lt-$fpc$/$pic$/10.$subinterface_ID_2$;
+        protocols {
+            pim {
+              interface lt-$fpc$/$pic$/10.$subinterface_ID_2$;
+            }
+        }
+    }
+}

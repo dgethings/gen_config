@@ -1,0 +1,81 @@
+policy-options {
+    community $transport_vrf_import_rt_set_1$ members target:12641:$Provider_VPN_RT$;
+    community $transport_vrf_import_rt_set_2$ members target:12641:$Provider_RP_RT$;
+    policy-statement $transport_vrf_import_policy$ {
+        term VPN-routes {
+            from {
+                protocol bgp;
+                community $transport_vrf_import_rt_set_1$;
+            }
+            then accept;
+        }
+        term RP {
+            from {
+                protocol bgp;
+                community $transport_vrf_import_rt_set_2$;
+            }
+            then accept;
+        }
+        term mdt {
+            from {
+                family inet-mdt;
+                protocol bgp;
+                route-filter $default_MDT_group_address$/32 exact;
+            }
+            then accept;
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+    policy-statement $transport_vrf_export_policy$ {
+        term rib-mdt {
+            from rib $transport_vrf_name$.mdt.0;
+            then {
+                accept;
+            }
+        }
+        term explicit-deny {
+            then reject;
+        }
+    }
+}
+routing-instances {
+    $transport_vrf_name$ {
+        instance-type vrf;
+        route-distinguisher 12641:$RD$;
+        vrf-import $transport_vrf_import_policy$;
+        vrf-export $transport_vrf_export_policy$;
+        vrf-table-label;
+        provider-tunnel {
+            pim-ssm {
+                group-address $default_MDT_group_address$;
+            }
+        }
+        protocols {
+            pim {
+                mvpn {
+                    autodiscovery {
+                        inet-mdt;
+                    }
+                }
+                rp {
+                    static {
+                        address $RP_address$ {
+                             group-ranges {
+                               $customer_multicast_group_address$/32;
+                            }
+                        }
+                    }
+                }
+            }
+            mvpn {
+                autodiscovery-only {
+                    intra-as {
+                        inclusive;
+                    }
+                }
+            }
+        }
+    }
+}

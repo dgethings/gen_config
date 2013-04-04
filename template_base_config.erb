@@ -1,5 +1,3 @@
-
-
 groups {
     re0 {
         system {
@@ -7,7 +5,7 @@ groups {
         }
         interfaces {
             fxp0 {
-                description "FE      <%= config['hostname'] %> RE0 to OOB";
+                description "FE <%= config['hostname'] %> RE0 to OOB";
                 speed 10m;
                 link-mode full-duplex;
                 unit 0 {
@@ -65,34 +63,31 @@ chassis {
     }
 }
 interfaces {
-
     <% config['wan-phy-interfaces'].each do |key,value| -%>
-   <%= key['interface_name'] %> {
+    <%= key['interface_name'] %> {
         description "<%= key['interface_description'] %>";
         gigether-options {
             802.3ad <%= config['wan-ae-interface'] %>;                
         }
-   }
+    }
     <% end -%>
-    
     <% config['edge-phy-interfaces'].each do |key,value| -%>
-   <%= key['interface_name'] %> {
+    <%= key['interface_name'] %> {
         description "<%= key['interface_description'] %>";
         gigether-options {
             802.3ad <%= config['edge-ae-interface'] %>;                
         }
-   }
-    <% end -%>
-    
+    }
+    <% end -%>  
     <% config['sister-phy-interfaces'].each do |key,value| -%>
-   <%= key['interface_name'] %> {
+    <%= key['interface_name'] %> {
         description "<%= key['interface_description'] %>";
         gigether-options {
             802.3ad <%= config['sister-ae-interface'] %>;                
         }
-   }
+    }
     <% end -%>
-        /* minimum-links value must be equal to physical links, should be increased when a new link is provisioned */
+    /* minimum-links value must be equal to physical links, should be increased when a new link is provisioned */
     <%= config['edge-ae-interface'] %> {
         description "<%= config['edge-ae-interface-description'] %>";
         flexible-vlan-tagging;

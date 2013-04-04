@@ -1,0 +1,369 @@
+interfaces {
+    $physical_interface {
+        unit $logical_interface {
+            /* vrf $vrf$ */
+            description "$unit_interface_description";
+            vlan-id $logical_interface$;
+            family inet {
+                mtu 1500;
+                address $pe_int_addr$/30;
+                filter {
+                    input-list [ finex-control agg_$vrf$_$physical_interface$.$logical_interface$ finex-cos-$physical_interface$.$logical_interface$ ];
+                    output-list [ finex-BFD-BGP-PIM-out AF2_SAN_$vrf$ AF2-rtq-out-default AF1_SAN_$vrf$ AF1-out-default ];
+                }
+            }
+        }
+    }
+    lo0 {
+        unit $vrf_lo0_logical_int {
+            /* vrf $vrf$ */
+            description "$vrf_lo0_int_descr";
+            family inet {
+                filter {
+                    input protect-RE-VRF;
+                }
+                address $vrf_lo0_ip_addr/32;
+            }
+        }
+    }
+}
+policy-options {
+    prefix-list allowed-srcs-$physical_interface$.$logical_interface$ {
+        $src_nat_prefix/$src_mask$;
+    }
+    policy-statement fv-import-$vrf$ {
+        term import-TR-hub-RTs {
+            from {
+                protocol bgp;
+                community RT-community-12641:9685;
+            }
+            then accept;
+        }
+    }
+    policy-statement fv-export-$vrf$ {
+        term PE-Lo99xx {
+            from {
+                protocol direct;
+                prefix-list-filter temp-PE-loops orlonger;
+            }
+            then {
+                community add FV-COMMUNITY-SET;
+                community add BT-MPLS-PE-VRF-loopback-SET;
+                community add $vrf$-TR-spoke-RTs;
+                accept;
+            }
+        }
+        term permit-static-fv-loop10s {
+            from {
+                protocol static;
+                prefix-list-filter fv-loop10s orlonger;
+            }
+            then {
+                community add $vrf$-TR-spoke-RTs;
+                accept;
+            }
+        }
+        term permit-no-converge {
+            from {
+                protocol static;
+                tag 6137;
+            }
+            then {
+                community add FV-COMMUNITY-SET;
+                community add FE-TR-CLIENT-COM;
+                community add $vrf$-TR-spoke-RTs;
+                accept;
+            }
+        }
+        term export-TR-spoke-RTs {
+            from {
+                protocol bgp;
+                community FE-TR-CLIENT-COM;
+            }
+            then {
+                community add $vrf$-TR-spoke-RTs;
+                accept;
+            }
+        }
+    }
+    community $vrf$-TR-spoke-RTs members target:12641:9686;
+}
+class-of-service {
+		drop-profiles {
+		    afx1_traffic_in-contract_drop_profile {
+		        fill-level 50 drop-probability 0;
+		        fill-level 99 drop-probability 10;
+		    }
+		    afx2_traffic_near-contract_drop_profile {
+		        fill-level 15 drop-probability 0;
+		        fill-level 40 drop-probability 10;
+		    }
+		    afx3_traffic_out-contract_drop_profile {
+		        fill-level 6 drop-probability 0;
+		        fill-level 14 drop-probability 20;
+		    }
+		}
+		forwarding-classes {
+		    class FC-Q6 queue-num 6;
+		    class FC-Q4 queue-num 4;
+		    class FC-Q3 queue-num 3;
+		    class FC-Q2 queue-num 2;
+		    class FC-Q1 queue-num 1;
+		    class FC-Q0 queue-num 0;
+		    class FC-Q7 queue-num 7;
+		    class FC-Q5 queue-num 5;
+		    class FC-Q4-Bleach queue-num 4;
+		    class FC-EXP0-Q4 queue-num 4;
+		}
+		traffic-control-profiles {
+	    	$tcp_name$ {
+		        scheduler-map $sched_map_name$;
+		        shaping-rate $shaping_rate$;
+		    }
+		}
+		interfaces {
+	        $physical_interface {
+	            unit $logical_interface {
+	                output-traffic-control-profile traff_ctrl_prof_$vrf_name$_$interface$;
+	            }
+	        }
+		}
+		scheduler-maps {
+		        $sched_map_name$ {
+		            forwarding-class FC-Q1 scheduler af1_$vrf_name$_$interface$;
+		            forwarding-class FC-Q2 scheduler af2_$vrf_name$_$interface$;
+		            forwarding-class FC-Q7 scheduler af3_$vrf_name$_$interface$;
+		            forwarding-class FC-Q4 scheduler dflt_$vrf_name$_$interface$;
+		            forwarding-class FC-Q3 scheduler ctrl_$vrf_name$_$interface$;
+		        }
+		}
+		schedulers {
+	        af1_$vrf_name$_$interface$ {
+	            transmit-rate percent $af1_bw$;
+	            buffer-size percent $af1_buff$;
+	            priority low;
+	            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+	            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+	            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+	        }
+	        af2_$vrf_name$_$interface$ {
+	            transmit-rate percent $af2_bw$;
+	            buffer-size percent $af2_buff$;
+	            priority low;
+	            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+	            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+	            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+	        }
+	        af3_$vrf_name$_$interface$ {
+	            transmit-rate percent $af3_bw$;
+	            buffer-size percent $af3_buff$;
+	            priority low;
+	            drop-profile-map loss-priority low protocol any drop-profile afx1_traffic_in-contract_drop_profile;
+	            drop-profile-map loss-priority medium-high protocol any drop-profile afx2_traffic_near-contract_drop_profile;
+	            drop-profile-map loss-priority high protocol any drop-profile afx3_traffic_out-contract_drop_profile;
+	        }
+	        dflt_$vrf_name$_$interface$ {
+	            transmit-rate remainder;
+	            buffer-size remainder;
+	            priority low;
+	        }
+	        ctrl_$vrf_name$_$interface$ {
+	            transmit-rate percent $ctrl_bw$;
+	            buffer-size percent $ctrl_buff$;
+	            priority high;
+	        }
+	    }
+}
+firewall {
+    policer agg_$vrf$_$physical_interface$.$logical_interface$_policer {
+        if-exceeding {
+            bandwidth-limit $vrf_agg_police_bw;
+            burst-size-limit $vrf_agg_police_burst;
+        }
+        then {
+            discard;
+        }
+    }
+    policer AF1_$physical_interface$.$logical_interface$ {
+        if-exceeding {
+            bandwidth-limit $vrf_af1_bw;
+            burst-size-limit $vrf_af1_burst;
+        }
+        then {
+            loss-priority low;
+            forwarding-class FC-Q6;
+        }
+    }
+    policer AF1_SAN_$physical_interface$.$logical_interface$ {
+        if-exceeding {
+            bandwidth-limit $vrf_af1_san_bw;
+            burst-size-limit $vrf_af1_san_burst;
+        }
+        then {
+			discard;
+        }
+    }
+    policer AF2_SAN_$physical_interface$.$logical_interface$ {
+        if-exceeding {
+            bandwidth-limit $vrf_af2_san_bw;
+            burst-size-limit $vrf_af2_san_burst;
+        }
+        then {
+			discard;
+        }
+    }
+    family inet {
+        filter agg_$vrf$_$physical_interface$.$logical_interface$ {
+            interface-specific;
+            term sp-ping {                   
+                from {
+                    source-prefix-list {
+                        sp-ping-$subint;
+                    }
+                    protocol icmp;
+                    icmp-type-except echo-reply;
+                }                                   
+                then {
+                    count sp-ping-discard;
+                    discard;
+                }
+            }
+            term allowed-srcs-except {
+                from {
+                    source-prefix-list {
+                        allowed-srcs-$physical_interface$.$logical_interface$ except;
+                    }
+                }
+                then {
+                    count discard-traffic;
+                    discard;
+                }
+            }
+            term Agg-policer {
+                then {
+                    policer agg_$vrf$_$physical_interface$.$logical_interface$_policer;
+                    count all-permitted;
+                    next term;
+                }
+            }
+        }
+        filter finex-cos-$subint {
+            term AF1_in {
+                from {
+                    dscp af11;
+                }
+                then {
+                    policer AF1_$physical_interface$.$logical_interface$;
+                    count AF_in;
+                    loss-priority low;
+                    forwarding-class FC-Q6;
+                    accept;
+                }
+            }
+            term AF1_out { 
+                from {
+                    dscp [ af12 af13 ];
+                }
+                then {
+                    count AF1_out;
+                    loss-priority high;
+                    forwarding-class FC-Q6;
+                    accept;
+                }   
+            }
+            term default {
+                then {
+                    count BE;
+                    loss-priority low;
+                    forwarding-class FC-Q4;
+                    accept;
+                }
+            }
+        }
+        filter AF2_SAN_$vrf$ {
+            apply-groups AF2_SAN;
+            term AF2_SAN-1-all {
+                then count AF2_SAN-all;
+            }
+            term AF2_SAN-1-pol {
+                then {
+                    policer AF2_SAN_$physical_interface$.$logical_interface$;
+                    loss-priority low;
+                }
+            }
+            term AF2_SAN-1-ic {
+                then count AF2_SAN-ic;
+            }
+            term AF2_SAN-1-oc {
+                then count AF2_SAN-oc;
+            }
+		}
+        filter AF1_SAN_$vrf$ {
+            apply-groups AF1_SAN;
+            term AF1_SAN-1-all {
+                then count AF1_SAN-all;
+            }
+            term AF1_SAN-1-pol {
+                then {
+                    policer AF1_SAN_$physical_interface$.$logical_interface$;
+                    loss-priority low;
+                }
+            }
+            term AF1_SAN-1-ic {
+                then count AF1_SAN-ic;
+            }
+            term AF1_SAN-1-oc {
+                then count AF1_SAN-oc;
+            }
+		}
+
+    }
+}
+routing-instances {
+    $vrf$ {
+        instance-type vrf;
+        route-distinguisher $ASN:$RD_number;
+        interface $physical_interface.$logical_interface;
+        interface lo0.$grey_vrf_lo0_logical_int;
+        vrf-import fv-import-$vrf$;
+        vrf-export fv-export-$vrf$;
+        vrf-table-label;
+        routing-options {
+            static {
+                route $ce_loopback10$/32 {
+                    next-hop $ce_ip_addr$;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    community [ 12641:65050 12641:6125 ];
+                }
+                route $no_converge_prefix$/$no_converge_prefix_mask$ {
+                    next-hop $ce_ip_addr$;
+                    tag 6137;
+                    retain;
+                    community [16579:3001 12641:6125 ];
+                }
+                route $ce_ip_addr$/32 {
+                    next-hop $ce_ip_addr$;
+                    bfd-liveness-detection {
+                        no-adaptation;
+                        minimum-interval 999;
+                        multiplier 3;
+                    }
+                    no-readvertise;
+                }
+            }
+            auto-export;
+            multipath;
+        }
+    }
+    forwarding-options {
+        family inet {
+            filter {
+                output $mcast_SAN_filter;
+            }
+        }
+    }
+}
