@@ -9,7 +9,18 @@ unless ARGV[0]
   exit
 end
 
-yaml = YAML.load( File.read( ARGV[0] ) )
+yaml = YAML.load_file( ARGV[0] )
+
+# refactor this, it's shite code but works
+if File.exist? '/etc/gen_config.conf'
+  app_conf = YAML.load_file( '/etc/gen_config.conf' )
+elsif File.exist? "#{ENV['HOME']}/.gen_config.conf"
+  app_conf = YAML.load_file( "#{ENV['HOME']}/.gen_config.conf" )
+elsif File.exist? './.gen_config.conf'
+  app_conf = YAML.load_file( './.gen_config.conf' )
+else
+  app_conf = {'template' => 'templates'}
+end
 
 if ARGV[1] == "test"
   puts YAML::dump( yaml )
@@ -17,8 +28,8 @@ if ARGV[1] == "test"
 end
 
 yaml.each do |config|
-  @template = ERB.new( File.read( "templates/#{config['template']}" ) )
-  c= OpenStruct.new( config )
+  @template = ERB.new( File.read( "#{app_conf['template']}/#{config['template']}" ) )
+  c = OpenStruct.new( config )
   
   puts @template.result( c.send( :binding ) )
 end
