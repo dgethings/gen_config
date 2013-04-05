@@ -1,0 +1,15 @@
+#!/usr/bin/env perl
+
+# quick hack of a script that will produce yaml config file for given
+# erb file.
+# Should just need to paste output into a yaml file, supply values and
+# you're good to go!
+
+my $file;
+{ local $/ = undef; local *FILE; open FILE, "<$ARGV[0]"; $file = <FILE>; close FILE }
+
+(@a) = $file =~ /<%= (c\.\w+) %>/g;
+foreach (@a) { $h{$_} = 1; }
+
+print "- template: $ARGV[0]\n";
+print map { s/c\.(\w+)/  $1: /; "$_\n" } sort keys %h;
