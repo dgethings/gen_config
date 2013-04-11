@@ -36,11 +36,19 @@ The gen_config takes the values from the YAML file and substitutes the variables
 
 The correct format for an ERB variable is "<%= c.variable %>" without the surrounding quotes (that is the quotes are no necessary). "variable" is the name of the variable that needed to be substituted. For example, if the template initially has all variables marked as $variable$ this would need to be changed to <%= c.variable %>.
 
-Once the template is complete you can extract a list of variables using the following UNIX command:
+Once the template is complete you can extract a list of variables using the yaml_from_erb command (which is part of this distribution):
 
-  perl -ne '(@a) = /<%= (c\.\w+) %>/g; foreach (@a) { $h{$_} = 1; } END { print map { s/c\.//; "$_\n"} sort keys %h }' <filename>.erb
+  yaml_from_erb <filename>.erb > <filename>.yaml
 
 From this list you can build the YAML file. You must preface the list of variables with "- template: path/to/file.erb". See YAML format for an example.
+
+## INSTALLATION
+
+To install this script run the following command from the path of this file:
+
+  sudo rake install
+
+You must have root privilages to install these tools.
 
 ## SUPPORT
 
