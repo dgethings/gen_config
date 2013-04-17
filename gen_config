@@ -12,12 +12,12 @@ end
 yaml = YAML.load_file( ARGV[0] )
 
 # refactor this, it's shite code but works
-if File.exist? '/etc/gen_config.conf'
-  app_conf = YAML.load_file( '/etc/gen_config.conf' )
+if File.exist? './.gen_config.conf'
+  app_conf = YAML.load_file( './.gen_config.conf' )
 elsif File.exist? "#{ENV['HOME']}/.gen_config.conf"
   app_conf = YAML.load_file( "#{ENV['HOME']}/.gen_config.conf" )
-elsif File.exist? './.gen_config.conf'
-  app_conf = YAML.load_file( './.gen_config.conf' )
+elsif File.exist? '/etc/gen_config.conf'
+  app_conf = YAML.load_file( '/etc/gen_config.conf' )
 else
   app_conf = {'template' => 'templates'}
 end

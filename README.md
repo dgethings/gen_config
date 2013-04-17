@@ -9,6 +9,18 @@ gen_config produces a Junos configuration based on a given template and paramete
 
 For example `gen_config interface.yaml > interface.conf` will produce a file called "interface.conf" with the values from the YAML config file in it. This can then be applied to any device that supports "interface.conf" format.
 
+## Configuration File
+
+`gen_config` will search for it's configuration file in one of three places - in the following order:
+
+1. ./.gen_config.conf
+2. ~/.gen_config.conf
+3. /etc/gen_config.conf
+
+The config file uses the YAML format. It contains one piece of configuation - the location that `gen_config` should search for template files. This uses the `template` keyword to specify the path.
+
+If no configuration file can be found `gen_config` defaults to `./templates` for finding the template files.
+
 ## YAML format
 
 The YAML config file can be written in an valid YAML format. The only requirement is that the YAML file contains 'template' key with a value that points to a template file. The only supported template format is ERB, but others could be included.
@@ -25,7 +37,7 @@ For example here is a YAML config file that assigns an IP address to an interfac
 
 This will produce config for both xe-0/0/0 and xe-1/0/0. gen_config will iterate over each `- template` line. All key/value pairs after this line populate the ERB template file.
 
-## Adding New Templates
+## Templates Format
 
 The current format supported for templates is ERB. This section provides information on the syntax for the template fileand how to easily create a YAML for that template.
 
@@ -56,6 +68,8 @@ First you must download this reposity to the desired machine. Once done you can 
     sudo rake install
 
 You must have root privilages to install these tools.
+
+Once the installation is complete you can then edit the configuration file `/etc/gen_config.conf` and supply the preferred default template path.
 
 ## SUPPORT
 
