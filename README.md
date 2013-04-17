@@ -4,8 +4,7 @@ gen_config produces a Junos configuration based on a given template and paramete
 
 ## Usage
 
-`gen_config <YAML_FILE> [test]`
- 
+    gen_config <YAML_FILE> [test]
     [test] is optional, if set output will be the YAML configuration
 
 For example `gen_config interface.yaml > interface.conf` will produce a file called "interface.conf" with the values from the YAML config file in it. This can then be applied to any device that supports "interface.conf" format.
