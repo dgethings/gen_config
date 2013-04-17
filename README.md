@@ -1,6 +1,6 @@
 ## Summary
 
-gen_config produces a Junos configuration based on a given template and parameters - supplied in a YAML formatted file
+gen_config produces a Junos configuration based on a given template and parameters - supplied in a YAML formatted file. This is a Ruby script that depends on the YAML, ERB, Ostruct and Rake gems.
 
 ## Usage
 
@@ -27,13 +27,23 @@ This will produce config for both xe-0/0/0 and xe-1/0/0. gen_config will iterate
 
 ## Adding New Templates
 
-The current format supported for templates is ERB. This section provides information on the syntax and how to easily create a YAML for that template.
+The current format supported for templates is ERB. This section provides information on the syntax for the template fileand how to easily create a YAML for that template.
 
 The gen_config takes the values from the YAML file and substitutes the variables in the ERB with the values. Provided the ERB variables syntax is correct the substitution will work.
 
-The correct format for an ERB variable is "<%= c.variable %>" without the surrounding quotes (that is the quotes are no necessary). "variable" is the name of the variable that needed to be substituted. For example, if the template initially has all variables marked as $variable$ this would need to be changed to <%= c.variable %>.
+The correct format for an ERB variable is `<%= c.variable %>`. `variable` is the name of the variable that needed to be substituted. For example, if the template initially has all variables marked as `$variable$` this would need to be changed to `<%= c.variable %>`. Here is an example template file for an interface:
 
-Once the template is complete you can extract a list of variables using the yaml_from_erb command (which is part of this distribution):
+    interfaces {
+      <%= c.interface %> {
+        unit 0 {
+          family inet {
+            address <%= c.ip_address %>;
+          }
+        }
+      }
+    }
+
+Once the template is complete you can extract a list of variables using the `yaml_from_erb` command (which is part of this distribution):
 
     yaml_from_erb <filename>.erb > <filename>.yaml
 
