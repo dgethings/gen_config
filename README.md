@@ -2,15 +2,11 @@
 
 ## Usage
 
-gen_config <YAML_FILE> [test]
+`gen_config <YAML_FILE> [test]`
  
-  [test] is optional, if set output will be the YAML configuration
+    [test] is optional, if set output will be the YAML configuration
 
-For example:
-
-  gen_config interface.yaml > interface.conf
-
-Will produce a file called "interface.conf" with the values from the YAML config file in it. This can then be applied to any device that supports "interface.conf" format.
+For example `gen_config interface.yaml > interface.conf` will produce a file called "interface.conf" with the values from the YAML config file in it. This can then be applied to any device that supports "interface.conf" format.
 
 ## YAML format
 
@@ -18,15 +14,15 @@ The YAML config file can be written in an valid YAML format. The only requiremen
 
 For example here is a YAML config file that assigns an IP address to an interface using template file 'interface.erb' to add the additional syntax:
 
-  - template: interface.erb
-    interface: xe-0/0/0
-    ip_address: 10.0.0.1/24
+    - template: interface.erb
+      interface: xe-0/0/0
+      ip_address: 10.0.0.1/24
 
-  - template: interface.erb
-    interface: xe-1/0/0
-    ip_address: 11.0.0.1/24
+    - template: interface.erb
+      interface: xe-1/0/0
+      ip_address: 11.0.0.1/24
 
-This will produce config for both xe-0/0/0 and xe-1/0/0. gen_config will iterate over each "- template" line. All key/value pairs after this line populate the ERB template file.
+This will produce config for both xe-0/0/0 and xe-1/0/0. gen_config will iterate over each `- template` line. All key/value pairs after this line populate the ERB template file.
 
 ## Adding New Templates
 
@@ -38,15 +34,15 @@ The correct format for an ERB variable is "<%= c.variable %>" without the surrou
 
 Once the template is complete you can extract a list of variables using the yaml_from_erb command (which is part of this distribution):
 
-  yaml_from_erb <filename>.erb > <filename>.yaml
+    yaml_from_erb <filename>.erb > <filename>.yaml
 
-From this list you can build the YAML file. You must preface the list of variables with "- template: path/to/file.erb". See YAML format for an example.
+From this list you can build the YAML file. You must preface the list of variables with `- template: path/to/file.erb`. See YAML format for an example.
 
 ## INSTALLATION
 
 To install this script run the following command from the path of this file:
 
-  sudo rake install
+    sudo rake install
 
 You must have root privilages to install these tools.
 
