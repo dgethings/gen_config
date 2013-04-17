@@ -41,7 +41,7 @@ From this list you can build the YAML file. You must preface the list of variabl
 
 ## INSTALLATION
 
-To install this script run the following command from the path of this file:
+First you must download this reposity to the desired machine. Once done you can then install the script. To install this script run the following command from the path of this file:
 
     sudo rake install
 
