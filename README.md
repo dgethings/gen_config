@@ -1,4 +1,6 @@
-# gen_config produces a Junos configuration based on a given template and parameters - supplied in a YAML formatted file
+## Summary
+
+gen_config produces a Junos configuration based on a given template and parameters - supplied in a YAML formatted file
 
 ## Usage
 
