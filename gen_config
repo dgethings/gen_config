@@ -11,6 +11,8 @@ end
 
 yaml = YAML.load_file( ARGV[0] )
 
+current_time = Time.now
+
 # refactor this, it's shite code but works
 if File.exist? './.gen_config.conf'
   app_conf = YAML.load_file( './.gen_config.conf' )
@@ -27,6 +29,7 @@ if ARGV[1] == "test"
   exit
 end
 
+  puts '###### ' " generated at : #{current_time}, using YAML file :  #{ARGV[0]}\n" 
 yaml.each do |config|
   @template = ERB.new( File.read( "#{app_conf['template']}/#{config['template']}" ) )
   c = OpenStruct.new( config )
