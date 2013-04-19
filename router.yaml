@@ -1,5 +1,0 @@
-
-
-- template: BT/GS/HSPE/core-interface.erb
-  ifd: xe-0/0/0
-  ip_prefix: 1.1.1.1/30
