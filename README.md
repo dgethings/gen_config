@@ -61,6 +61,38 @@ Once the template is complete you can extract a list of variables using the `yam
 
 From this list you can build the YAML file. You must preface the list of variables with `- template: path/to/file.erb`. See YAML format for an example.
 
+## CREATING N INSTANCES OF A TEMPLATE
+
+This package contains infrastructure to create any number of instances of a template. This is done by using `iterate_yaml` to produce however many YAML defintions you need.
+
+This command takes a YAML config file as it's input and produces YAML output that `gen_config` uses to produce the required configuration.
+
+The following YAML format is used by `iterate_yaml`:
+
+    template: 
+    number_of_iterations: 
+    variables:
+    - name: 
+      type: 
+      initial_value: 
+      step: 
+One set of `- name`, `type`, `initial_value` and `step` is required per varaible. For variables that do not need to iterate you can omit the `type` and `step` parameters. The parameters are defined as follows:
+
+*   template:
+    Name of the template that gen_config will use to populate.
+*   number_of_iterations:
+    The number of times the following parameters are iterated
+*   variables:
+    Define name, type, initial_value and step for each of the parameters in the YAML file
+*   name:
+    Name of the parameter
+*   type:
+    Can be one of integer, string, ip_addr or ipv6_addr. Can be omitted if parameter does not need to iterate
+*   initial_value:
+    Starting value point for parameter
+*   step:
+    By how much the initial_value should increase by.
+
 ## INSTALLATION
 
 First you must download this reposity to the desired machine. Once done you can then install the script. To install this script run the following command from the path of this file:

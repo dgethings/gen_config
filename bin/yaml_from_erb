@@ -11,6 +11,6 @@ my $file;
 (@a) = $file =~ /<%= (c\.\w+) %>/g;
 foreach (@a) { $h{$_} = 1; }
 
-($ARGV[0]) =~ s/templates\///;
+($ARGV[0]) =~ s/.*templates\///;
 print "- template: $ARGV[0]\n";
 print map { s/c\.(\w+)/  $1: /; "$_\n" } sort keys %h;

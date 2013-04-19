@@ -21,15 +21,15 @@ elsif File.exist? "#{ENV['HOME']}/.gen_config.conf"
 elsif File.exist? '/etc/gen_config.conf'
   app_conf = YAML.load_file( '/etc/gen_config.conf' )
 else
-  app_conf = {'template' => 'templates'}
+  app_conf = { 'template' => 'templates' }
 end
 
 if ARGV[1] == "test"
   puts YAML::dump( yaml )
-  exit
+  exit # execution of this script
 end
 
-  puts '###### ' " generated at : #{current_time}, using YAML file :  #{ARGV[0]}\n" 
+puts "###### generated at : #{current_time}, using YAML file :  #{ARGV[0]}\n" 
 yaml.each do |config|
   @template = ERB.new( File.read( "#{app_conf['template']}/#{config['template']}" ) )
   c = OpenStruct.new( config )
