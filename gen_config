@@ -28,9 +28,11 @@ if ARGV[1] == "test"
   puts YAML::dump( yaml )
   exit
 end
+
   puts '###### ' " generated at : #{current_time}, using YAML file :  #{ARGV[0]}\n" 
 yaml.each do |config|
   @template = ERB.new( File.read( "#{app_conf['template']}/#{config['template']}" ) )
   c = OpenStruct.new( config )
+  
   puts @template.result( c.send( :binding ) )
 end
