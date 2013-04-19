@@ -1,3 +1,4 @@
 tmp/
 templates/
 yaml/
+.DS_Store
