@@ -72,14 +72,14 @@ generated_yaml = '###### ' " generated at : #{current_time}, using YAML file :  
 # for each iteration we will check the type and modify using the step
 i = 0
 while i < number_of_iterations  do
-  generated_yaml << "- template: #{yaml['template']}\n"
+  generated_yaml << "\n- template: #{yaml['template']}\n"
   yaml['variables'].each { |value| 
     if value['type'] == "integer"
       variable_value = value['initial_value'] + (i * value['step'])
     
     elsif value['type'] == "string"
       if value['step'] != 0
-        variable_value = "#{value['initial_value']}  " + (i * value['step']).to_s()
+        variable_value = "#{value['initial_value']}" + (i * value['step']).to_s()
       else
         variable_value = "#{value['initial_value']}"
       end

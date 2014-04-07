@@ -7,6 +7,6 @@ task :install do
     template_location = ENV['TEMPLATE_PREFIX'] || '/usr/local/share/templates'
     f.write( "template: #{template_location}" )
   end
-  puts "gen_config & yaml_from_erb installed."
+  puts "gen_config, iterate_yaml & yaml_from_erb installed."
   puts "Please edit #{conf_location}/gen_conf.conf to meet your environment."
 end
