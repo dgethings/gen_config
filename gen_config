@@ -11,7 +11,20 @@ end
 
 yaml = YAML.load_file( ARGV[0] )
 
-template = ERB.new( File.read( ARGV[1] ) )
-c = OpenStruct.new( yaml )
+templates_path = ''
+if File.exists?( '.gen_config.conf' )
+	templates_path = YAML.load_file( '.gen_config.conf' )['template_path']
+elsif File.exists?( "#{ENV['HOME']}/.gen_config.conf" )
+	templates_path = YAML.load_file( "#{ENV['HOME']}/.gen_config.conf" )['template_path']
+elsif File.exists?( "/etc/gen_config.conf" )
+	templates_path = YAML.load_file( '/etc/gen_config.conf' )['template_path']
+else
+	templates_path = "#{ENV['PWD']}/templates"
+end
 
-puts template.result( c.send( :binding ) )
+yaml.each do |var|
+  template = ERB.new( File.read( "#{templates_path}/#{var['template']}" ) )
+  c = OpenStruct.new( var )
+
+  puts template.result( c.send( :binding ) )	
+end
